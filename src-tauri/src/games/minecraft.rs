@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 use crate::auth::AuthSession;
@@ -11,15 +12,10 @@ use futures_util::TryStreamExt;
 use tauri::Emitter;
 
 /// Opciones necesarias para lanzar una instancia.
-/// serde(rename_all = "camelCase") para que del lado de JS se use
-/// instanceDir, versionId, javaPath, ramMinMb, ramMaxMb, extraJavaArgs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LaunchOptions {
     pub instance_dir: String,
-    /// El nombre EXACTO de la carpeta dentro de versions/, ej "neoforge-21.0.167"
-    /// o "1.20.1-forge-47.2.20". Para vanilla, es el mc_version tal cual.
-    /// Agregá este campo a cada perfil en tu profiles.json.
     pub version_id: String,
     pub java_path: String,
     pub ram_min_mb: u32,
@@ -32,16 +28,24 @@ pub async fn launch_minecraft(window: tauri::Window, options: LaunchOptions, aut
     let instance_dir = PathBuf::from(&options.instance_dir);
     let version_json = load_merged_version(&instance_dir, &options.version_id).await?;
 
+    // --- FIX: asegurar que TODAS las librerías con descarga conocida existan ---
+    // Esto es crítico para instancias Vanilla (que antes nunca bajaban libraries/)
+    // y sirve de red de seguridad si el instalador de NeoForge/Forge quedó incompleto.
+    ensure_libraries(&instance_dir, &version_json).await?;
+
     ensure_assets(&window, &instance_dir, &version_json).await?;
     tokio::fs::create_dir_all(instance_dir.join("natives"))
         .await
         .map_err(|e| e.to_string())?;
 
-    let classpath = build_classpath(&instance_dir, &version_json)?;
+    let classpath = build_classpath(&instance_dir, &version_json, &options.version_id)?;
     let main_class = version_json["mainClass"]
         .as_str()
         .ok_or("mainClass no encontrado en el version.json fusionado")?
         .to_string();
+
+    // --- FIX: separador de classpath según el SO, usado para armar library_directory ---
+    let classpath_separator = if cfg!(target_os = "windows") { ";" } else { ":" };
 
     let mut vars = HashMap::new();
     vars.insert("auth_player_name".into(), auth.username.clone());
@@ -75,6 +79,15 @@ pub async fn launch_minecraft(window: tauri::Window, options: LaunchOptions, aut
     vars.insert("launcher_version".into(), "1.0.0".into());
     vars.insert("classpath".into(), classpath);
 
+    // --- FIX PRINCIPAL: placeholders que usa el module-path (-p) de NeoForge/Forge
+    // modernos. Sin esto, "${library_directory}" queda literal en el argumento -p
+    // y el BootstrapLauncher no puede resolver módulos como datafixers/fastutil/guava.
+    vars.insert("classpath_separator".into(), classpath_separator.to_string());
+    vars.insert(
+        "library_directory".into(),
+        instance_dir.join("libraries").to_string_lossy().to_string(),
+    );
+
     let jvm_args = extract_argument_list(&version_json["arguments"]["jvm"], &vars);
     let game_args = extract_argument_list(&version_json["arguments"]["game"], &vars);
 
@@ -101,9 +114,64 @@ pub async fn launch_minecraft(window: tauri::Window, options: LaunchOptions, aut
         .spawn()
         .map_err(|e| format!("No se pudo lanzar Java: {}", e))?;
 
-    // No bloqueamos el launcher esperando a que cierres el juego.
+    if let Some(stdout) = child.stdout.take() {
+        let window_out = window.clone();
+        tokio::spawn(async move {
+            let mut lines = BufReader::new(stdout).lines();
+            loop {
+                match lines.next_line().await {
+                    Ok(Some(line)) => {
+                        println!("[MC stdout] {line}");
+                        let _ = window_out.emit("game-log", &line);
+                    }
+                    Ok(None) => break,
+                    Err(e) => {
+                        eprintln!("Error leyendo stdout de Minecraft: {e}");
+                        break;
+                    }
+                }
+            }
+        });
+    }
+
+    if let Some(stderr) = child.stderr.take() {
+        let window_err = window.clone();
+        tokio::spawn(async move {
+            let mut lines = BufReader::new(stderr).lines();
+            loop {
+                match lines.next_line().await {
+                    Ok(Some(line)) => {
+                        eprintln!("[MC stderr] {line}");
+                        let _ = window_err.emit("game-log", &line);
+                    }
+                    Ok(None) => break,
+                    Err(e) => {
+                        eprintln!("Error leyendo stderr de Minecraft: {e}");
+                        break;
+                    }
+                }
+            }
+        });
+    }
+
+    let window_exit = window.clone();
     tokio::spawn(async move {
-        let _ = child.wait().await;
+        match child.wait().await {
+            Ok(status) => {
+                if !status.success() {
+                    let msg = format!("Minecraft terminó con código de error: {status}");
+                    eprintln!("{msg}");
+                    let _ = window_exit.emit("game-exit-error", &msg);
+                } else {
+                    println!("Minecraft cerró correctamente.");
+                }
+            }
+            Err(e) => {
+                let msg = format!("Error esperando el proceso de Minecraft: {e}");
+                eprintln!("{msg}");
+                let _ = window_exit.emit("game-exit-error", &msg);
+            }
+        }
     });
 
     Ok(())
@@ -150,7 +218,7 @@ fn merge_versions(parent: Value, mut child: Value) -> Value {
     if let Some(child_libs) = child["libraries"].as_array() {
         libs.extend(child_libs.clone());
     }
-    child["libraries"] = Value::Array(libs);
+    child["libraries"] = Value::Array(dedupe_libraries(&libs));
 
     for key in ["jvm", "game"] {
         let mut merged = parent["arguments"][key]
@@ -216,7 +284,11 @@ fn maven_to_path(name: &str) -> String {
     )
 }
 
-fn build_classpath(instance_dir: &Path, version_json: &Value) -> Result<String, String> {
+fn build_classpath(
+    instance_dir: &Path,
+    version_json: &Value,
+    requested_version_id: &str,
+) -> Result<String, String> {
     let separator = if cfg!(target_os = "windows") { ";" } else { ":" };
     let mut jars = Vec::new();
 
@@ -226,37 +298,84 @@ fn build_classpath(instance_dir: &Path, version_json: &Value) -> Result<String, 
                 continue;
             }
             if let Some(path) = lib["downloads"]["artifact"]["path"].as_str() {
-                jars.push(
-                    instance_dir
-                        .join("libraries")
-                        .join(path)
-                        .to_string_lossy()
-                        .to_string(),
-                );
+                jars.push(instance_dir.join("libraries").join(path).to_string_lossy().to_string());
             } else if let Some(name) = lib["name"].as_str() {
-                jars.push(
-                    instance_dir
-                        .join("libraries")
-                        .join(maven_to_path(name))
-                        .to_string_lossy()
-                        .to_string(),
-                );
+                jars.push(instance_dir.join("libraries").join(maven_to_path(name)).to_string_lossy().to_string());
             }
         }
     }
 
-    // El .jar del cliente vanilla vive en versions/<vanillaId>/<vanillaId>.jar
+    // Solo agregamos el jar vanilla "crudo" si NO hay mod loader, es decir,
+    // si lo que se pidió lanzar es directamente la versión vanilla.
+    // Con NeoForge/Forge modernos el jar parcheado (con patches ya aplicados)
+    // viene declarado como library y sustituye por completo al vanilla;
+    // agregar los dos duplica las clases del juego bajo dos módulos y
+    // rompe la resolución de módulos de Java.
     if let Some(vanilla_id) = version_json["_vanillaId"].as_str() {
-        let client_jar = instance_dir
-            .join("versions")
-            .join(vanilla_id)
-            .join(format!("{}.jar", vanilla_id));
-        if client_jar.exists() {
-            jars.push(client_jar.to_string_lossy().to_string());
+        if vanilla_id == requested_version_id {
+            let client_jar = instance_dir
+                .join("versions")
+                .join(vanilla_id)
+                .join(format!("{}.jar", vanilla_id));
+            if client_jar.exists() {
+                jars.push(client_jar.to_string_lossy().to_string());
+            }
         }
     }
 
     Ok(jars.join(separator))
+}
+
+// ---------- FIX: descarga de librerías (libraries/) ----------
+// Antes NADA descargaba las libraries listadas en el version.json: para
+// instancias sin loader (Vanilla) esto significaba lanzar el juego sin
+// datafixers/fastutil/guava/etc., causando "Can't Find Class" en cadena.
+// Solo bajamos las que tienen downloads.artifact.url/path explícito (así
+// funciona el manifest de Mojang). Las librerías propias de NeoForge/Forge
+// que no traen esa info las sigue poniendo el instalador del loader.
+async fn ensure_libraries(instance_dir: &Path, version_json: &Value) -> Result<(), String> {
+    let libs = match version_json["libraries"].as_array() {
+        Some(l) => l,
+        None => return Ok(()),
+    };
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    for lib in libs {
+        if !library_allowed(lib) {
+            continue;
+        }
+
+        let artifact = &lib["downloads"]["artifact"];
+        let (rel_path, url) = match (artifact["path"].as_str(), artifact["url"].as_str()) {
+            (Some(p), Some(u)) if !u.is_empty() => (p.to_string(), u.to_string()),
+            _ => continue,
+        };
+
+        let dest = instance_dir.join("libraries").join(&rel_path);
+        if dest.exists() {
+            continue;
+        }
+        if let Some(parent) = dest.parent() {
+            tokio::fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
+        }
+
+        let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
+        if !resp.status().is_success() {
+            return Err(format!(
+                "Error {} descargando la librería {}",
+                resp.status(),
+                url
+            ));
+        }
+        let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+        tokio::fs::write(&dest, &bytes).await.map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
 }
 
 // ---------- Argumentos (jvm/game) con sustitución de variables ----------
@@ -280,14 +399,23 @@ fn extract_argument_list(value: &Value, vars: &HashMap<String, String>) -> Vec<S
         match item {
             Value::String(s) => out.push(substitute(s, vars)),
             Value::Object(_) => {
-                // Argumentos condicionales (resolución custom, demo, etc).
-                // Los omitimos salvo que no tengan "features" y estén permitidos.
+                // FIX: antes no se comprobaba el campo "os" de cada regla, así que
+                // argumentos exclusivos de una plataforma (ej. -XstartOnFirstThread,
+                // solo válido en macOS) se agregaban en CUALQUIER sistema operativo,
+                // rompiendo el arranque de la JVM ("Unrecognized option").
                 let rules_ok = item["rules"]
                     .as_array()
                     .map(|rules| {
-                        rules
-                            .iter()
-                            .all(|r| r["action"].as_str() == Some("allow") && r.get("features").is_none())
+                        let mut allowed = false;
+                        for rule in rules {
+                            let action_allow = rule["action"].as_str() == Some("allow");
+                            let matches_os = rule.get("os").map(os_matches).unwrap_or(true);
+                            let has_features = rule.get("features").is_some();
+                            if matches_os && !has_features {
+                                allowed = action_allow;
+                            }
+                        }
+                        allowed
                     })
                     .unwrap_or(false);
                 if rules_ok {
@@ -323,7 +451,7 @@ async fn ensure_assets(
     let index_path = indexes_dir.join(format!("{}.json", asset_id));
 
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30)) // evita que una request colgada trabe todo
+        .timeout(std::time::Duration::from_secs(30))
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -341,8 +469,6 @@ async fn ensure_assets(
     let objects_dir = instance_dir.join("assets").join("objects");
     let objects = index_json["objects"].as_object().cloned().unwrap_or_default();
 
-    // Filtramos primero los que faltan, para saber el total real y poder
-    // reportar progreso "X de Y" en vez de contar todos los objetos del index.
     let mut pending = Vec::new();
     for meta in objects.values() {
         if let Some(hash) = meta["hash"].as_str() {
@@ -384,7 +510,7 @@ async fn ensure_assets(
                 Ok::<(), String>(())
             }
         })
-        .buffer_unordered(24) // 24 descargas simultáneas
+        .buffer_unordered(24)
         .try_for_each(|_| async { Ok(()) })
         .await?;
 
@@ -429,4 +555,61 @@ pub async fn ensure_vanilla_version(instance_dir: String, mc_version: String) ->
     }
 
     Ok(())
+}
+
+/// Clave única de una librería para deduplicar: "group:artifact[:classifier]".
+/// Ignoramos la versión a propósito: si vanilla y el loader (NeoForge/Forge)
+/// declaran el mismo artefacto con distinta versión, nos quedamos con uno solo.
+fn library_key(lib: &Value) -> String {
+    if let Some(name) = lib["name"].as_str() {
+        let parts: Vec<&str> = name.split(':').collect();
+        if parts.len() >= 3 {
+            let mut key = format!("{}:{}", parts[0], parts[1]);
+            if let Some(classifier) = parts.get(3) {
+                key.push(':');
+                key.push_str(classifier);
+            }
+            return key;
+        }
+        return name.to_string();
+    }
+    lib["downloads"]["artifact"]["path"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string()
+}
+
+/// FIX: elimina duplicados exactos (mismo artefacto) que aparecen cuando se
+/// fusiona la lista de libraries del padre (vanilla) con la del hijo
+/// (NeoForge/Forge). Sin esto, BootstrapLauncher explota con
+/// "Duplicate key ..." al construir el UnionFileSystem del module layer.
+/// Se queda con la ÚLTIMA aparición (la del loader pisa a la de vanilla)
+/// pero conserva el orden de la primera aparición.
+fn dedupe_libraries(libs: &[Value]) -> Vec<Value> {
+    let mut order: Vec<String> = Vec::new();
+    let mut map: HashMap<String, Value> = HashMap::new();
+
+    for lib in libs {
+        let key = library_key(lib);
+        let has_downloads = lib["downloads"]["artifact"]["path"].as_str().is_some();
+
+        match map.get(&key) {
+            None => {
+                order.push(key.clone());
+                map.insert(key, lib.clone());
+            }
+            Some(existing) => {
+                let existing_has_downloads =
+                    existing["downloads"]["artifact"]["path"].as_str().is_some();
+                // FIX: nunca pisamos una entrada CON info de descarga por una que
+                // no la tiene. Si ambas la tienen (o ninguna), gana la más nueva
+                // (la del loader), que es la que normalmente debe prevalecer.
+                if has_downloads || !existing_has_downloads {
+                    map.insert(key, lib.clone());
+                }
+            }
+        }
+    }
+
+    order.into_iter().filter_map(|k| map.remove(&k)).collect()
 }

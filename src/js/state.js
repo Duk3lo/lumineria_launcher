@@ -22,6 +22,11 @@ export async function fetchProfiles() {
     return PROFILES;
 }
 
+export async function resetInstanceLibraries(profileId) {
+    const instanceDir = await getInstanceDir(profileId);
+    await invoke('reset_instance_libraries', { instanceDir });
+}
+
 export function setProfileSelection(id) {
     selectedProfileId = id;
 }

@@ -60,6 +60,7 @@ pub fn run() {
             instance::get_instance_status,
             instance::list_mods,
             instance::toggle_mod,
+            instance::reset_instance_libraries,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

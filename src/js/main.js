@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Acciones disparadas desde las tarjetas de perfil (ui.js)
         document.addEventListener('lumineria:play-profile', (event) => {
-            iniciarJuego(event.detail.id);
+            iniciarJuego(event.detail.id, event.detail.force === true);
         });
         document.addEventListener('lumineria:open-folder', (event) => {
             abrirCarpetaInstancia(event.detail.id);

@@ -1,10 +1,10 @@
-import { PROFILES, getBaseDirectory, getInstanceDir, AUTH_SESSION, SETTINGS } from './state.js';
+import { PROFILES, getBaseDirectory, getInstanceDir, AUTH_SESSION, SETTINGS, resetInstanceLibraries } from './state.js';
 import { updateStatus, updateCardProgress, setCardPlayState, refreshCardStatus } from './ui.js';
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
-export async function iniciarJuego(profileId) {
+export async function iniciarJuego(profileId, force = false) {
     if (!profileId || !PROFILES[profileId]) return;
 
     if (!AUTH_SESSION) {
@@ -23,6 +23,13 @@ export async function iniciarJuego(profileId) {
     const installersDir = `${baseDir}/installers`;
 
     try {
+
+        if (force) {
+            updateStatus("Limpiando instalación anterior...");
+            updateCardProgress(profileId, 2, 'Limpiando archivos previos...');
+            await resetInstanceLibraries(profileId);
+        }
+
         await invoke('ensure_dir', { path: instanceDir });
         await invoke('ensure_dir', { path: installersDir });
         await invoke('ensure_launcher_profile', { instanceDir });
