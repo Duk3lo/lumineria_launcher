@@ -86,7 +86,7 @@ async function handleToggle(mod, checkboxEl) {
 
         refreshCardStatus(currentProfileId);
     } catch (e) {
-        checkboxEl.checked = !checkboxEl.checked; // revertir en caso de error
+        checkboxEl.checked = !checkboxEl.checked; 
         console.error('No se pudo cambiar el estado del mod:', e);
     } finally {
         checkboxEl.disabled = false;
