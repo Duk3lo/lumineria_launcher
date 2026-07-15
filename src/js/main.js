@@ -5,9 +5,6 @@ import { openLoginModal, closeLoginModal, handleOfflineLogin, handleMicrosoftLog
 import { openModsModal, closeModsModal } from './mods.js';
 import { initConsole } from './console.js';
 
-// Autoactualización: se resuelve adentro de la función (no en el top-level)
-// para que, si el plugin todavía no está listo, no tumbe el arranque de
-// todo el launcher.
 async function checkForUpdates() {
     try {
         const { check } = window.__TAURI__.updater;
@@ -33,8 +30,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         await initSettingsPanel();
         initConsole();
 
-        // Si ya se había iniciado sesión antes, la recuperamos para no
-        // tener que pedirla de nuevo cada vez que se abre el launcher.
         const savedSession = await loadSession();
         if (savedSession) {
             restoreSession(savedSession);
@@ -42,7 +37,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateStatus("Esperando acción...");
         }
 
-        // Acciones disparadas desde las tarjetas de perfil (ui.js)
         document.addEventListener('lumineria:play-profile', (event) => {
             iniciarJuego(event.detail.id, event.detail.force === true);
         });
@@ -66,8 +60,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('btn-minecraft').addEventListener('click', () => console.log('Minecraft seleccionado'));
         document.getElementById('btn-hytale').addEventListener('click', () => alert('Hytale llegará pronto!'));
 
-        // No usamos await: que corra en segundo plano mientras el usuario
-        // ya puede usar el launcher con normalidad.
         checkForUpdates();
 
     } catch (error) {

@@ -6,7 +6,6 @@
     position: relative;
 }
 
-/* Efecto de partículas/brillo de fondo */
 .launcher-container::before {
     content: '';
     position: absolute;
@@ -16,7 +15,6 @@
     pointer-events: none;
 }
 
-/* Barra lateral con Glassmorphism */
 .sidebar {
     width: 260px;
     background: var(--glass-bg);
@@ -34,7 +32,6 @@
     border-top: 1px solid var(--border-soft);
 }
 
-/* Contenido Principal */
 .content {
     flex: 1;
     display: flex;

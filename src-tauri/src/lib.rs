@@ -20,7 +20,6 @@ async fn ensure_dir(path: String) -> Result<(), String> {
     tokio::fs::create_dir_all(&path).await.map_err(|e| e.to_string())
 }
 
-/// Abre una carpeta (o archivo) con el explorador/gestor de archivos por defecto del sistema.
 #[tauri::command]
 fn open_folder(path: String) -> Result<(), String> {
     open::that(path).map_err(|e| e.to_string())
@@ -29,14 +28,9 @@ fn open_folder(path: String) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        // Inicializa tus plugins aquí
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        // Nota: Si usas el nuevo opener de Tauri v2 puedes descomentar la siguiente línea y quitar el crate `open` externo
-        // .plugin(tauri_plugin_opener::init()) 
-        
-        // Registra todos tus comandos con las NUEVAS RUTAS de los módulos
         .invoke_handler(tauri::generate_handler![
             get_default_path,
             ensure_dir,

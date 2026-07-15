@@ -9,7 +9,6 @@ function appendLine(text) {
     output.textContent += text + '\n';
     lineCount++;
     if (lineCount > MAX_LINES) {
-        // recorta el buffer para no comerse toda la memoria en sesiones largas
         const lines = output.textContent.split('\n');
         output.textContent = lines.slice(lines.length - MAX_LINES).join('\n');
         lineCount = MAX_LINES;

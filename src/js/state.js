@@ -2,17 +2,11 @@ const { invoke } = window.__TAURI__.core;
 
 export let PROFILES = {};
 export let selectedProfileId = null;
-export let AUTH_SESSION = null; // { username, uuid, accessToken, userType }
+export let AUTH_SESSION = null;
 export let SETTINGS = { ramMinMb: 1024, ramMaxMb: 4096, javaArgsExtra: "" };
 
 let baseDirectoryCache = null;
 
-/**
- * Carga las instancias locales desde ui/profiles.json.
- * Por ahora es un archivo estático junto al resto del frontend
- * (mismo lugar que index.html), pensado para probar el launcher
- * con instancias reales antes de conectarlo a un backend remoto.
- */
 export async function fetchProfiles() {
     const res = await fetch('./profiles.json');
     if (!res.ok) {
@@ -43,8 +37,6 @@ export async function getInstanceDir(profileId) {
     return `${baseDir}/instances/${profileId}`;
 }
 
-// ---- Settings (RAM, args extra de Java) ----
-
 export async function loadSettings() {
     const baseDir = await getBaseDirectory();
     SETTINGS = await invoke('load_settings', { baseDir });
@@ -62,8 +54,6 @@ export async function getSystemRamMb() {
     return await invoke('get_system_ram_mb');
 }
 
-// ---- Estado de instalación / mods (estilo CurseForge) ----
-
 export async function getInstanceStatus(profileId) {
     const instanceDir = await getInstanceDir(profileId);
     return await invoke('get_instance_status', { instanceDir });
@@ -79,8 +69,6 @@ export async function toggleMod(profileId, filename, enable) {
     return await invoke('toggle_mod', { instanceDir, filename, enable });
 }
 
-// ---- Login ----
-
 export function setAuthSession(session) {
     AUTH_SESSION = session;
 }
@@ -91,7 +79,6 @@ export async function loginOffline(username) {
 }
 
 export async function loginMicrosoftStart() {
-    // -> { deviceCode, userCode, verificationUri, interval, expiresIn }
     return await invoke('ms_login_start');
 }
 
@@ -100,7 +87,6 @@ export async function loginMicrosoftPoll(deviceCode, interval, expiresIn) {
     return AUTH_SESSION;
 }
 
-// ---- Sesión persistida (para no tener que loguearse cada vez que se abre) ----
 
 export async function saveSession() {
     if (!AUTH_SESSION) return;

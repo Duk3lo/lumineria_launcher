@@ -6,9 +6,6 @@ const loginStatus = document.getElementById('login-status');
 const accountLabel = document.getElementById('account-label');
 const usernameInput = document.getElementById('login-username-input');
 
-// El login con Microsoft todavía no está disponible (falta terminar la
-// configuración de la app en Azure). Por ahora se muestra como "próximamente"
-// y no intenta hacer el flujo real.
 const MICROSOFT_LOGIN_ENABLED = false;
 
 const USERNAME_REGEX = /^[A-Za-z0-9_]{3,16}$/;
@@ -66,7 +63,6 @@ export async function handleMicrosoftLogin() {
     }
 }
 
-/** Aplica a la UI una sesión que se recuperó del disco al iniciar el launcher. */
 export function restoreSession(session) {
     if (!session) return false;
     updateStatus(`Sesión iniciada como ${session.username}`);

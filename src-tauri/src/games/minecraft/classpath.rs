@@ -54,20 +54,16 @@ pub fn build_classpath(instance_dir: &Path, version_json: &Value, requested_vers
     Ok(jars.join(separator))
 }
 
-// Asegúrate de tener "use serde_json::Value;" arriba en este archivo
-
 pub async fn ensure_libraries(instance_dir: &std::path::Path, version_json: &Value) -> Result<(), String> {
     let libs = match version_json["libraries"].as_array() { Some(l) => l, None => return Ok(()) };
     let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(60)).build().map_err(|e| e.to_string())?;
 
     for lib in libs {
-        // Usa directamente library_allowed asumiendo que está en este mismo archivo
         if !library_allowed(lib) { continue; } 
         
         let mut rel_path = String::new();
         let mut dl_url = String::new();
 
-        // FIX: Soporte dual para Vanilla y Forge/Fabric
         if let Some(artifact) = lib.get("downloads").and_then(|d| d.get("artifact")) {
             if let (Some(p), Some(u)) = (artifact["path"].as_str(), artifact["url"].as_str()) {
                 if !u.is_empty() {
@@ -76,7 +72,7 @@ pub async fn ensure_libraries(instance_dir: &std::path::Path, version_json: &Val
                 }
             }
         } else if let Some(name) = lib["name"].as_str() {
-            rel_path = maven_to_path(name); // Llama a maven_to_path en este mismo archivo
+            rel_path = maven_to_path(name);
             if let Some(url) = lib.get("url").and_then(|u| u.as_str()) {
                 dl_url = format!("{}{}", url, rel_path);
             }

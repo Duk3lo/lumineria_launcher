@@ -20,7 +20,7 @@ export async function iniciarJuego(profileId, force = false) {
     const baseDir = await getBaseDirectory();
     const instanceDir = await getInstanceDir(profileId);
     const installersDir = `${baseDir}/installers`;
-    const targetVersionId = profile.version_id || profile.mc_version; // El ID de Forge
+    const targetVersionId = profile.version_id || profile.mc_version;
 
     try {
         if (force) {
@@ -34,7 +34,6 @@ export async function iniciarJuego(profileId, force = false) {
         await invoke('ensure_launcher_profile', { instanceDir });
         await invoke('ensure_vanilla_version', { instanceDir, mcVersion: profile.mc_version });
 
-        // --- PASO 1: JAVA ---
         updateStatus(`Verificando Java ${profile.java_version}...`);
         updateCardProgress(profileId, 15, `Comprobando Java ${profile.java_version}...`);
         let javaPath;
@@ -47,7 +46,6 @@ export async function iniciarJuego(profileId, force = false) {
             javaPath = await invoke('verify_and_get_java', { version: profile.java_version, baseDir });
         }
 
-        // --- COMPROBACIÓN: ¿Ya está instalado el Loader? ---
         let isInstalled = false;
         try {
             isInstalled = await invoke('check_version_installed', { instanceDir, versionId: targetVersionId });
@@ -55,8 +53,6 @@ export async function iniciarJuego(profileId, force = false) {
             console.warn("No se pudo comprobar la versión", e);
         }
 
-        // --- PASO 2: MOD LOADER ---
-        // ¡SOLO INSTALAMOS SI NO ESTÁ INSTALADO O SI EL USUARIO PUSO FORCE!
         if (profile.loader_url) {
             if (!isInstalled || force) {
                 updateStatus(`Preparando ${profile.loader_name}...`);
@@ -76,7 +72,6 @@ export async function iniciarJuego(profileId, force = false) {
             }
         }
 
-        // --- PASO 3: PACKWIZ ---
         if (profile.packwiz_url) {
             updateStatus(`Sincronizando mods de ${profile.title}...`);
             updateCardProgress(profileId, 60, 'Sincronizando mods...');
@@ -93,7 +88,6 @@ export async function iniciarJuego(profileId, force = false) {
             });
         }
 
-        // --- PASO 4: ASSETS + LANZAR ---
         updateStatus("Descargando assets y lanzando el juego...");
         updateCardProgress(profileId, 85, 'Descargando assets...');
 
@@ -132,7 +126,6 @@ export async function iniciarJuego(profileId, force = false) {
     }
 }
 
-// ESTA ES LA FUNCIÓN QUE SE HABÍA BORRADO:
 export async function abrirCarpetaInstancia(profileId) {
     if (!profileId) return;
     const instanceDir = await getInstanceDir(profileId);

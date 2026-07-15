@@ -15,10 +15,6 @@ export function updateStatus(text) {
     statusText.innerText = text;
 }
 
-// ------------------------------------------------------------------
-// Tarjetas de perfiles / instancias
-// ------------------------------------------------------------------
-
 export function drawProfiles() {
     profilesGrid.innerHTML = '';
     const profileKeys = Object.keys(PROFILES);
@@ -35,7 +31,6 @@ export function drawProfiles() {
     setProfileSelection(profileKeys[0]);
     highlightSelectedCard(profileKeys[0]);
 
-    // Averiguamos en segundo plano si cada instancia ya está instalada
     refreshAllCardStatuses(profileKeys);
 }
 
@@ -78,14 +73,12 @@ function buildProfileCard(id, profile) {
         </div>
     `;
 
-    // Selección de tarjeta al hacer click en cualquier parte que no sea un botón
     card.addEventListener('click', (event) => {
         if (event.target.closest('button')) return;
         setProfileSelection(id);
         highlightSelectedCard(id);
     });
 
-    // Delegación de eventos para los botones de la tarjeta
     card.addEventListener('click', (event) => {
         const actionBtn = event.target.closest('[data-action]');
         if (!actionBtn) return;
@@ -141,16 +134,12 @@ export function closeAllDropdowns() {
     document.querySelectorAll('.card-dropdown-menu').forEach(menu => menu.classList.add('hidden'));
 }
 
-// Cierra cualquier menú abierto si se hace click fuera de una tarjeta
 document.addEventListener('click', (event) => {
     if (!event.target.closest('.play-button-group')) {
         closeAllDropdowns();
     }
 });
 
-// ------------------------------------------------------------------
-// Estado de instalación por tarjeta (instalado / no instalado, # mods)
-// ------------------------------------------------------------------
 
 async function refreshAllCardStatuses(profileKeys) {
     for (const id of profileKeys) {
@@ -184,10 +173,6 @@ export async function refreshCardStatus(id) {
     }
 }
 
-// ------------------------------------------------------------------
-// Progreso de instalación / descarga por tarjeta (estilo CurseForge)
-// ------------------------------------------------------------------
-
 export function setCardPlayState(id, disabled) {
     const playBtn = document.getElementById(`play-btn-${id}`);
     const dropdownToggle = document.getElementById(`dropdown-toggle-${id}`);
@@ -211,10 +196,6 @@ export function updateCardProgress(id, percent, label) {
         setTimeout(() => container.classList.add('hidden'), 1500);
     }
 }
-
-// ------------------------------------------------------------------
-// Panel de ajustes: RAM min/max + args extra de Java
-// ------------------------------------------------------------------
 
 export async function initSettingsPanel() {
     await loadSettings();

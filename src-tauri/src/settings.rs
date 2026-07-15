@@ -43,9 +43,6 @@ pub async fn save_settings(base_dir: String, settings: LauncherSettings) -> Resu
     tokio::fs::write(&path, raw).await.map_err(|e| e.to_string())
 }
 
-/// RAM total del sistema en MB, para poner un tope razonable en el slider del front.
-/// Nota: si tu versión de `sysinfo` es anterior a la 0.30, total_memory()
-/// devuelve KB en vez de bytes — ajustá la división según la versión que instales.
 #[tauri::command]
 pub fn get_system_ram_mb() -> u64 {
     use sysinfo::System;

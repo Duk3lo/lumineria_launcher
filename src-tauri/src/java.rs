@@ -25,15 +25,11 @@ pub enum JavaStatus {
 }
 
 pub fn check_local_java(required_version: u8, base_dir: &str) -> JavaStatus {
-    // Busca en: MiCarpeta/runtimes/jre-21
     let runtime_dir = PathBuf::from(base_dir).join("runtimes").join(format!("jre-{}", required_version));
-
     if let Some(java_path) = find_executable(&runtime_dir) {
-        // ¡LA MEJORA! Ejecutamos "java -version" de forma oculta
         match StdCommand::new(&java_path).arg("-version").output() {
             Ok(output) => {
                 if output.status.success() {
-                    // Si el comando fue exitoso, Java funciona perfectamente
                     return JavaStatus::Ready(java_path);
                 } else {
                     println!("Java existe pero está corrupto o falló al ejecutarse.");
@@ -43,8 +39,6 @@ pub fn check_local_java(required_version: u8, base_dir: &str) -> JavaStatus {
         }
     }
     
-    // Si no existe, o si falló la prueba de "-version", lo marcamos como faltante
-    // para que el launcher lo descargue de nuevo automáticamente.
     JavaStatus::Missing
 }
 
@@ -62,8 +56,6 @@ fn find_executable(base_dir: &Path) -> Option<PathBuf> {
     }
     None
 }
-
-/// Nombre de sistema operativo tal como lo espera la API de Adoptium.
 fn adoptium_os() -> &'static str {
     if cfg!(target_os = "windows") {
         "windows"
@@ -74,8 +66,6 @@ fn adoptium_os() -> &'static str {
     }
 }
 
-/// Adoptium entrega .zip para Windows y .tar.gz para Linux/Mac —
-/// hay que guardarlo y descomprimirlo con el formato correcto.
 fn archive_extension() -> &'static str {
     if cfg!(target_os = "windows") { "zip" } else { "tar.gz" }
 }
@@ -85,14 +75,11 @@ async fn download_jre(version: u8, base_dir: &str) -> Result<()> {
     let url = format!("https://api.adoptium.net/v3/binary/latest/{}/ga/{}/x64/jre/hotspot/normal/eclipse", version, os);
 
     let runtimes_dir = PathBuf::from(base_dir).join("runtimes");
-    tokio::fs::create_dir_all(&runtimes_dir).await?; // Crea la carpeta runtimes si no existe
+    tokio::fs::create_dir_all(&runtimes_dir).await?;
 
     let ext = archive_extension();
     let archive_path = runtimes_dir.join(format!("runtime_{}.{}", version, ext));
     let dest_dir = runtimes_dir.join(format!("jre-{}", version));
-
-    // Si quedó una carpeta de un intento anterior fallido, la limpiamos
-    // para no mezclar archivos de una extracción rota con la nueva.
     if dest_dir.exists() {
         tokio::fs::remove_dir_all(&dest_dir).await.ok();
     }
@@ -122,7 +109,6 @@ async fn download_jre(version: u8, base_dir: &str) -> Result<()> {
 }
 
 async fn extract_zip(zip_path: &str, dest_dir: &str) -> Result<()> {
-    // (TU CÓDIGO ACTUAL DE extract_zip SE QUEDA EXACTAMENTE IGUAL)
     let zip_path = zip_path.to_string();
     let dest_dir = dest_dir.to_string();
 
@@ -160,9 +146,6 @@ async fn extract_zip(zip_path: &str, dest_dir: &str) -> Result<()> {
     Ok(())
 }
 
-/// Extrae un .tar.gz (formato real que entrega Adoptium para Linux/Mac).
-/// tar conserva los permisos originales del archivo, así que bin/java
-/// ya queda ejecutable sin necesidad de un chmod manual.
 async fn extract_tar_gz(archive_path: &str, dest_dir: &str) -> Result<()> {
     let archive_path = archive_path.to_string();
     let dest_dir = dest_dir.to_string();
