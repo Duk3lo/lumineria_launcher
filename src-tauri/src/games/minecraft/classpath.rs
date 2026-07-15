@@ -1,0 +1,79 @@
+use std::path::Path;
+use serde_json::Value;
+
+pub fn os_matches(rule_os: &Value) -> bool {
+    match rule_os["name"].as_str() {
+        Some("windows") => cfg!(target_os = "windows"),
+        Some("osx") => cfg!(target_os = "macos"),
+        Some("linux") => cfg!(target_os = "linux"),
+        _ => true,
+    }
+}
+
+pub fn library_allowed(lib: &Value) -> bool {
+    let rules = match lib["rules"].as_array() { Some(r) => r, None => return true };
+    let mut allowed = false;
+    for rule in rules {
+        let action_allow = rule["action"].as_str() == Some("allow");
+        let matches_os = rule.get("os").map(os_matches).unwrap_or(true);
+        if matches_os { allowed = action_allow; }
+    }
+    allowed
+}
+
+pub fn maven_to_path(name: &str) -> String {
+    let parts: Vec<&str> = name.split(':').collect();
+    if parts.len() < 3 { return name.replace(':', "/"); }
+    let group = parts[0].replace('.', "/");
+    let (artifact, version) = (parts[1], parts[2]);
+    let classifier = parts.get(3).map(|c| format!("-{}", c)).unwrap_or_default();
+    format!("{}/{}/{}/{}-{}{}.jar", group, artifact, version, artifact, version, classifier)
+}
+
+pub fn build_classpath(instance_dir: &Path, version_json: &Value, requested_version_id: &str) -> Result<String, String> {
+    let separator = if cfg!(target_os = "windows") { ";" } else { ":" };
+    let mut jars = Vec::new();
+
+    if let Some(libs) = version_json["libraries"].as_array() {
+        for lib in libs {
+            if !library_allowed(lib) { continue; }
+            if let Some(path) = lib["downloads"]["artifact"]["path"].as_str() {
+                jars.push(instance_dir.join("libraries").join(path).to_string_lossy().to_string());
+            } else if let Some(name) = lib["name"].as_str() {
+                jars.push(instance_dir.join("libraries").join(maven_to_path(name)).to_string_lossy().to_string());
+            }
+        }
+    }
+
+    if let Some(vanilla_id) = version_json["_vanillaId"].as_str() {
+        if vanilla_id == requested_version_id {
+            let client_jar = instance_dir.join("versions").join(vanilla_id).join(format!("{}.jar", vanilla_id));
+            if client_jar.exists() { jars.push(client_jar.to_string_lossy().to_string()); }
+        }
+    }
+    Ok(jars.join(separator))
+}
+
+pub async fn ensure_libraries(instance_dir: &Path, version_json: &Value) -> Result<(), String> {
+    let libs = match version_json["libraries"].as_array() { Some(l) => l, None => return Ok(()) };
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(60)).build().map_err(|e| e.to_string())?;
+
+    for lib in libs {
+        if !library_allowed(lib) { continue; }
+        let artifact = &lib["downloads"]["artifact"];
+        let (rel_path, url) = match (artifact["path"].as_str(), artifact["url"].as_str()) {
+            (Some(p), Some(u)) if !u.is_empty() => (p.to_string(), u.to_string()),
+            _ => continue,
+        };
+
+        let dest = instance_dir.join("libraries").join(&rel_path);
+        if dest.exists() { continue; }
+        if let Some(parent) = dest.parent() { tokio::fs::create_dir_all(parent).await.map_err(|e| e.to_string())?; }
+
+        let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
+        if !resp.status().is_success() { return Err(format!("Error {} con librería {}", resp.status(), url)); }
+        let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+        tokio::fs::write(&dest, &bytes).await.map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
