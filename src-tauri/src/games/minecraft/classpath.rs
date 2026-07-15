@@ -54,26 +54,46 @@ pub fn build_classpath(instance_dir: &Path, version_json: &Value, requested_vers
     Ok(jars.join(separator))
 }
 
-pub async fn ensure_libraries(instance_dir: &Path, version_json: &Value) -> Result<(), String> {
+// Asegúrate de tener "use serde_json::Value;" arriba en este archivo
+
+pub async fn ensure_libraries(instance_dir: &std::path::Path, version_json: &Value) -> Result<(), String> {
     let libs = match version_json["libraries"].as_array() { Some(l) => l, None => return Ok(()) };
     let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(60)).build().map_err(|e| e.to_string())?;
 
     for lib in libs {
-        if !library_allowed(lib) { continue; }
-        let artifact = &lib["downloads"]["artifact"];
-        let (rel_path, url) = match (artifact["path"].as_str(), artifact["url"].as_str()) {
-            (Some(p), Some(u)) if !u.is_empty() => (p.to_string(), u.to_string()),
-            _ => continue,
-        };
+        // Usa directamente library_allowed asumiendo que está en este mismo archivo
+        if !library_allowed(lib) { continue; } 
+        
+        let mut rel_path = String::new();
+        let mut dl_url = String::new();
+
+        // FIX: Soporte dual para Vanilla y Forge/Fabric
+        if let Some(artifact) = lib.get("downloads").and_then(|d| d.get("artifact")) {
+            if let (Some(p), Some(u)) = (artifact["path"].as_str(), artifact["url"].as_str()) {
+                if !u.is_empty() {
+                    rel_path = p.to_string();
+                    dl_url = u.to_string();
+                }
+            }
+        } else if let Some(name) = lib["name"].as_str() {
+            rel_path = maven_to_path(name); // Llama a maven_to_path en este mismo archivo
+            if let Some(url) = lib.get("url").and_then(|u| u.as_str()) {
+                dl_url = format!("{}{}", url, rel_path);
+            }
+        }
+
+        if rel_path.is_empty() || dl_url.is_empty() { continue; }
 
         let dest = instance_dir.join("libraries").join(&rel_path);
         if dest.exists() { continue; }
+        
         if let Some(parent) = dest.parent() { tokio::fs::create_dir_all(parent).await.map_err(|e| e.to_string())?; }
 
-        let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
-        if !resp.status().is_success() { return Err(format!("Error {} con librería {}", resp.status(), url)); }
-        let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
-        tokio::fs::write(&dest, &bytes).await.map_err(|e| e.to_string())?;
+        let resp = client.get(&dl_url).send().await.map_err(|e| e.to_string())?;
+        if resp.status().is_success() {
+            let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+            tokio::fs::write(&dest, &bytes).await.map_err(|e| e.to_string())?;
+        }
     }
     Ok(())
 }

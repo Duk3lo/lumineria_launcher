@@ -55,6 +55,7 @@ pub fn run() {
             downloader::profile::ensure_launcher_profile,
             downloader::file::download_generic_file,
             downloader::jar::execute_jar,
+            downloader::jar::check_version_installed,
             
             // --- Games / Minecraft (Nuevas rutas) ---
             games::minecraft::launcher::launch_minecraft,

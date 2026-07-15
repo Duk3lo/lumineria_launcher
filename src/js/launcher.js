@@ -18,12 +18,11 @@ export async function iniciarJuego(profileId, force = false) {
 
     const profile = PROFILES[profileId];
     const baseDir = await getBaseDirectory();
-
     const instanceDir = await getInstanceDir(profileId);
     const installersDir = `${baseDir}/installers`;
+    const targetVersionId = profile.version_id || profile.mc_version; // El ID de Forge
 
     try {
-
         if (force) {
             updateStatus("Limpiando instalación anterior...");
             updateCardProgress(profileId, 2, 'Limpiando archivos previos...');
@@ -48,19 +47,33 @@ export async function iniciarJuego(profileId, force = false) {
             javaPath = await invoke('verify_and_get_java', { version: profile.java_version, baseDir });
         }
 
-        // --- PASO 2: MOD LOADER ---
-        if (profile.loader_url) {
-            updateStatus(`Preparando ${profile.loader_name}...`);
-            updateCardProgress(profileId, 40, `Instalando ${profile.loader_name}...`);
+        // --- COMPROBACIÓN: ¿Ya está instalado el Loader? ---
+        let isInstalled = false;
+        try {
+            isInstalled = await invoke('check_version_installed', { instanceDir, versionId: targetVersionId });
+        } catch (e) {
+            console.warn("No se pudo comprobar la versión", e);
+        }
 
-            const installerPath = `${installersDir}/${profile.loader_name.toLowerCase()}-${profile.mc_version}-installer.jar`;
-            await invoke('download_generic_file', { url: profile.loader_url, destPath: installerPath });
-            await invoke('execute_jar', {
-                javaPath,
-                jarPath: installerPath,
-                args: ["--installClient", instanceDir],
-                workDir: installersDir
-            });
+        // --- PASO 2: MOD LOADER ---
+        // ¡SOLO INSTALAMOS SI NO ESTÁ INSTALADO O SI EL USUARIO PUSO FORCE!
+        if (profile.loader_url) {
+            if (!isInstalled || force) {
+                updateStatus(`Preparando ${profile.loader_name}...`);
+                updateCardProgress(profileId, 40, `Instalando ${profile.loader_name}...`);
+
+                const installerPath = `${installersDir}/${profile.loader_name.toLowerCase()}-${profile.mc_version}-installer.jar`;
+                await invoke('download_generic_file', { url: profile.loader_url, destPath: installerPath });
+                await invoke('execute_jar', {
+                    javaPath,
+                    jarPath: installerPath,
+                    args: ["--installClient", instanceDir],
+                    workDir: installersDir
+                });
+            } else {
+                updateStatus(`✔ ${profile.loader_name} ya estaba instalado.`);
+                updateCardProgress(profileId, 40, `Verificado ${profile.loader_name}`);
+            }
         }
 
         // --- PASO 3: PACKWIZ ---
@@ -94,7 +107,7 @@ export async function iniciarJuego(profileId, force = false) {
             await invoke('launch_minecraft', {
                 options: {
                     instanceDir,
-                    versionId: profile.version_id || profile.mc_version,
+                    versionId: targetVersionId,
                     javaPath,
                     ramMinMb: SETTINGS.ramMinMb,
                     ramMaxMb: SETTINGS.ramMaxMb,
@@ -117,11 +130,4 @@ export async function iniciarJuego(profileId, force = false) {
         updateCardProgress(profileId, 0, '');
         console.error(e);
     }
-}
-
-export async function abrirCarpetaInstancia(profileId) {
-    if (!profileId) return;
-    const instanceDir = await getInstanceDir(profileId);
-    await invoke('ensure_dir', { path: instanceDir });
-    await invoke('open_folder', { path: instanceDir });
 }

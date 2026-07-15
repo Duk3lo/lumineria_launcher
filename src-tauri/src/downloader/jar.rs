@@ -1,8 +1,8 @@
-use std::path::PathBuf;
-use std::process::Stdio;
+use tauri::Emitter;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
-use tauri::Emitter;
+use std::process::Stdio;
+use std::path::PathBuf;
 
 #[tauri::command]
 pub async fn execute_jar(window: tauri::Window, java_path: String, jar_path: String, args: Vec<String>, work_dir: String) -> Result<String, String> {
@@ -11,7 +11,7 @@ pub async fn execute_jar(window: tauri::Window, java_path: String, jar_path: Str
     for arg in &args { command.arg(arg); }
     command.stdout(Stdio::piped()).stderr(Stdio::piped());
 
-    let mut child = command.spawn().map_err(|e| format!("Fallo: {}", e))?;
+    let mut child = command.spawn().map_err(|e| format!("Fallo al ejecutar Java: {}", e))?;
     let stdout_buf = std::sync::Arc::new(tokio::sync::Mutex::new(Vec::new()));
     let stderr_buf = std::sync::Arc::new(tokio::sync::Mutex::new(Vec::new()));
 
@@ -38,21 +38,22 @@ pub async fn execute_jar(window: tauri::Window, java_path: String, jar_path: Str
     };
 
     let status = child.wait().await.unwrap();
-    let _ = out_task.await;
-    let _ = err_task.await;
+    
+    // ¡LA SOLUCIÓN AL FREEZE! 
+    out_task.abort();
+    err_task.abort();
 
     let stdout = stdout_buf.lock().await.join("\n");
     let stderr = stderr_buf.lock().await.join("\n");
 
     if status.success() { Ok(stdout) } else {
-        let mut msg = format!("Error ejecutando jar.\n[stdout]\n{}\n[stderr]\n{}", stdout, stderr);
-        if let Some(log) = read_installer_log_tail(&work_dir) { msg.push_str(&format!("\n[installer.log]\n{}", log)); }
-        Err(msg)
+        Err(format!("Error ejecutando jar.\n[stdout]\n{}\n[stderr]\n{}", stdout, stderr))
     }
 }
 
-fn read_installer_log_tail(work_dir: &str) -> Option<String> {
-    let content = std::fs::read_to_string(PathBuf::from(work_dir).join("installer.log")).ok()?;
-    let lines: Vec<&str> = content.lines().collect();
-    Some((if lines.len() > 40 { &lines[lines.len() - 40..] } else { &lines[..] }).join("\n"))
+// NUEVO COMANDO (Para no instalar forge a cada rato)
+#[tauri::command]
+pub async fn check_version_installed(instance_dir: String, version_id: String) -> Result<bool, String> {
+    let json_path = PathBuf::from(instance_dir).join("versions").join(&version_id).join(format!("{}.json", version_id));
+    Ok(json_path.exists())
 }
