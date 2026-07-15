@@ -3,6 +3,7 @@ use futures_util::StreamExt;
 use std::path::{Path, PathBuf};
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
+use std::process::Command as StdCommand; 
 
 #[tauri::command]
 pub async fn verify_and_get_java(version: u8, base_dir: String) -> Result<String, String> {
@@ -28,10 +29,23 @@ pub fn check_local_java(required_version: u8, base_dir: &str) -> JavaStatus {
     let runtime_dir = PathBuf::from(base_dir).join("runtimes").join(format!("jre-{}", required_version));
 
     if let Some(java_path) = find_executable(&runtime_dir) {
-        JavaStatus::Ready(java_path)
-    } else {
-        JavaStatus::Missing
+        // ¡LA MEJORA! Ejecutamos "java -version" de forma oculta
+        match StdCommand::new(&java_path).arg("-version").output() {
+            Ok(output) => {
+                if output.status.success() {
+                    // Si el comando fue exitoso, Java funciona perfectamente
+                    return JavaStatus::Ready(java_path);
+                } else {
+                    println!("Java existe pero está corrupto o falló al ejecutarse.");
+                }
+            },
+            Err(e) => println!("Error al intentar ejecutar Java: {}", e),
+        }
     }
+    
+    // Si no existe, o si falló la prueba de "-version", lo marcamos como faltante
+    // para que el launcher lo descargue de nuevo automáticamente.
+    JavaStatus::Missing
 }
 
 fn find_executable(base_dir: &Path) -> Option<PathBuf> {

@@ -9,45 +9,45 @@ pub async fn execute_jar(window: tauri::Window, java_path: String, jar_path: Str
     let mut command = Command::new(&java_path);
     command.current_dir(&work_dir).arg("-jar").arg(&jar_path);
     for arg in &args { command.arg(arg); }
+    
+    // Configuramos Pipes para lectura
     command.stdout(Stdio::piped()).stderr(Stdio::piped());
 
     let mut child = command.spawn().map_err(|e| format!("Fallo al ejecutar Java: {}", e))?;
-    let stdout_buf = std::sync::Arc::new(tokio::sync::Mutex::new(Vec::new()));
-    let stderr_buf = std::sync::Arc::new(tokio::sync::Mutex::new(Vec::new()));
+    
+    // Tomamos los lectores de salida
+    let stdout_reader = child.stdout.take().unwrap();
+    let stderr_reader = child.stderr.take().unwrap();
 
-    let out_task = {
-        let (window, buf, stdout) = (window.clone(), stdout_buf.clone(), child.stdout.take().unwrap());
-        tokio::spawn(async move {
-            let mut lines = BufReader::new(stdout).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                let _ = window.emit("process-log", serde_json::json!({ "stream": "stdout", "line": &line }));
-                buf.lock().await.push(line);
-            }
-        })
-    };
+    // Tarea para STDOUT: Procesar y enviar al frontend inmediatamente
+    let window_out = window.clone();
+    let out_task = tokio::spawn(async move {
+        let mut reader = BufReader::new(stdout_reader).lines();
+        while let Ok(Some(line)) = reader.next_line().await {
+            let _ = window_out.emit("process-log", serde_json::json!({ "stream": "stdout", "line": &line }));
+        }
+    });
 
-    let err_task = {
-        let (window, buf, stderr) = (window.clone(), stderr_buf.clone(), child.stderr.take().unwrap());
-        tokio::spawn(async move {
-            let mut lines = BufReader::new(stderr).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                let _ = window.emit("process-log", serde_json::json!({ "stream": "stderr", "line": &line }));
-                buf.lock().await.push(line);
-            }
-        })
-    };
+    // Tarea para STDERR: Lo mismo para errores
+    let window_err = window.clone();
+    let err_task = tokio::spawn(async move {
+        let mut reader = BufReader::new(stderr_reader).lines();
+        while let Ok(Some(line)) = reader.next_line().await {
+            let _ = window_err.emit("process-log", serde_json::json!({ "stream": "stderr", "line": &line }));
+        }
+    });
 
+    // Esperar a que el proceso termine
     let status = child.wait().await.unwrap();
     
-    // ¡LA SOLUCIÓN AL FREEZE! 
+    // Forzamos el fin de las tareas de lectura para liberar recursos
     out_task.abort();
     err_task.abort();
 
-    let stdout = stdout_buf.lock().await.join("\n");
-    let stderr = stderr_buf.lock().await.join("\n");
-
-    if status.success() { Ok(stdout) } else {
-        Err(format!("Error ejecutando jar.\n[stdout]\n{}\n[stderr]\n{}", stdout, stderr))
+    if status.success() {
+        Ok("Instalación completada exitosamente".into())
+    } else {
+        Err("El instalador devolvió un código de error. Revisa la consola del launcher.".into())
     }
 }
 

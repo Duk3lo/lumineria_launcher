@@ -131,3 +131,11 @@ export async function iniciarJuego(profileId, force = false) {
         console.error(e);
     }
 }
+
+// ESTA ES LA FUNCIÓN QUE SE HABÍA BORRADO:
+export async function abrirCarpetaInstancia(profileId) {
+    if (!profileId) return;
+    const instanceDir = await getInstanceDir(profileId);
+    await invoke('ensure_dir', { path: instanceDir });
+    await invoke('open_folder', { path: instanceDir });
+}
