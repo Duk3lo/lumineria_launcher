@@ -1,0 +1,120 @@
+import { PROFILES, getBaseDirectory, getInstanceDir, AUTH_SESSION, SETTINGS } from './state.js';
+import { updateStatus, updateCardProgress, setCardPlayState, refreshCardStatus } from './ui.js';
+
+const { invoke } = window.__TAURI__.core;
+const { listen } = window.__TAURI__.event;
+
+export async function iniciarJuego(profileId) {
+    if (!profileId || !PROFILES[profileId]) return;
+
+    if (!AUTH_SESSION) {
+        updateStatus("Iniciá sesión antes de jugar");
+        document.dispatchEvent(new CustomEvent('lumineria:require-login'));
+        return;
+    }
+
+    setCardPlayState(profileId, true);
+    updateCardProgress(profileId, 5, 'Preparando...');
+
+    const profile = PROFILES[profileId];
+    const baseDir = await getBaseDirectory();
+
+    const instanceDir = await getInstanceDir(profileId);
+    const installersDir = `${baseDir}/installers`;
+
+    try {
+        await invoke('ensure_dir', { path: instanceDir });
+        await invoke('ensure_dir', { path: installersDir });
+        await invoke('ensure_launcher_profile', { instanceDir });
+        await invoke('ensure_vanilla_version', { instanceDir, mcVersion: profile.mc_version });
+
+        // --- PASO 1: JAVA ---
+        updateStatus(`Verificando Java ${profile.java_version}...`);
+        updateCardProgress(profileId, 15, `Comprobando Java ${profile.java_version}...`);
+        let javaPath;
+        try {
+            javaPath = await invoke('verify_and_get_java', { version: profile.java_version, baseDir });
+        } catch (error) {
+            updateStatus(`Descargando Java aislado (${profile.java_version})...`);
+            updateCardProgress(profileId, 25, `Descargando Java ${profile.java_version}...`);
+            await invoke('download_java_command', { version: profile.java_version, baseDir });
+            javaPath = await invoke('verify_and_get_java', { version: profile.java_version, baseDir });
+        }
+
+        // --- PASO 2: MOD LOADER ---
+        if (profile.loader_url) {
+            updateStatus(`Preparando ${profile.loader_name}...`);
+            updateCardProgress(profileId, 40, `Instalando ${profile.loader_name}...`);
+
+            const installerPath = `${installersDir}/${profile.loader_name.toLowerCase()}-${profile.mc_version}-installer.jar`;
+            await invoke('download_generic_file', { url: profile.loader_url, destPath: installerPath });
+            await invoke('execute_jar', {
+                javaPath,
+                jarPath: installerPath,
+                args: ["--installClient", instanceDir],
+                workDir: installersDir
+            });
+        }
+
+        // --- PASO 3: PACKWIZ ---
+        if (profile.packwiz_url) {
+            updateStatus(`Sincronizando mods de ${profile.title}...`);
+            updateCardProgress(profileId, 60, 'Sincronizando mods...');
+
+            const packwizUrl = "https://github.com/packwiz/packwiz-installer-bootstrap/releases/latest/download/packwiz-installer-bootstrap.jar";
+            const packwizPath = `${installersDir}/packwiz-installer-bootstrap.jar`;
+
+            await invoke('download_generic_file', { url: packwizUrl, destPath: packwizPath });
+            await invoke('execute_jar', {
+                javaPath,
+                jarPath: packwizPath,
+                args: [profile.packwiz_url],
+                workDir: instanceDir
+            });
+        }
+
+        // --- PASO 4: ASSETS + LANZAR ---
+        updateStatus("Descargando assets y lanzando el juego...");
+        updateCardProgress(profileId, 85, 'Descargando assets...');
+
+        const unlisten = await listen('assets-progress', (event) => {
+            const { done, total } = event.payload;
+            const pct = 85 + Math.floor((done / total) * 14); 
+            updateCardProgress(profileId, pct, `Descargando assets (${done}/${total})...`);
+        });
+
+        try {
+            await invoke('launch_minecraft', {
+                options: {
+                    instanceDir,
+                    versionId: profile.version_id || profile.mc_version,
+                    javaPath,
+                    ramMinMb: SETTINGS.ramMinMb,
+                    ramMaxMb: SETTINGS.ramMaxMb,
+                    extraJavaArgs: SETTINGS.javaArgsExtra || ""
+                },
+                auth: AUTH_SESSION
+            });
+        } finally {
+            unlisten();
+        }
+
+        updateCardProgress(profileId, 100, '¡Listo!');
+        updateStatus("¡Disfruta tu aventura!");
+        setTimeout(() => setCardPlayState(profileId, false), 1000);
+        refreshCardStatus(profileId);
+
+    } catch (e) {
+        updateStatus(`Error: ${e}`);
+        setCardPlayState(profileId, false);
+        updateCardProgress(profileId, 0, '');
+        console.error(e);
+    }
+}
+
+export async function abrirCarpetaInstancia(profileId) {
+    if (!profileId) return;
+    const instanceDir = await getInstanceDir(profileId);
+    await invoke('ensure_dir', { path: instanceDir });
+    await invoke('open_folder', { path: instanceDir });
+}

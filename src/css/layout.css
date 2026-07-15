@@ -1,0 +1,81 @@
+.launcher-container {
+    display: flex;
+    height: 100%;
+    background: url('../assets/bg-galaxia.jpg') no-repeat center center;
+    background-size: cover;
+    position: relative;
+}
+
+/* Efecto de partículas/brillo de fondo */
+.launcher-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, transparent 0%, var(--bg-dark) 100%);
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* Barra lateral con Glassmorphism */
+.sidebar {
+    width: 260px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border-right: 1px solid var(--border-soft);
+    padding: 30px 20px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-footer {
+    margin-top: auto;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-soft);
+}
+
+/* Contenido Principal */
+.content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 40px 60px;
+    z-index: 5;
+    overflow-y: auto;
+}
+
+.content::-webkit-scrollbar { width: 8px; }
+.content::-webkit-scrollbar-track { background: transparent; }
+.content::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+.content::-webkit-scrollbar-thumb:hover { background: var(--primary-glow); }
+
+.main-crystal-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 70%;
+    height: 70%;
+    background-image: url('../assets/cristal-central.png');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    opacity: 0.6;
+    filter: drop-shadow(0 0 30px rgba(192, 132, 252, 0.4));
+    pointer-events: none;
+    z-index: 2;
+    animation: flotar 6s ease-in-out infinite;
+}
+
+@keyframes flotar {
+    0% { transform: translate(-50%, -52%); }
+    50% { transform: translate(-50%, -48%); }
+    100% { transform: translate(-50%, -52%); }
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}

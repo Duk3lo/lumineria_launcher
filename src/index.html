@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumineria Launcher</title>
+    <!-- Importar CSS dividido -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+
+<body>
+    <div class="launcher-container">
+        <div class="main-crystal-overlay"></div>
+        <aside class="sidebar">
+            <div class="logo">LUMINERIA</div>
+            <ul class="game-list">
+                <li class="active" id="btn-minecraft">Minecraft</li>
+                <li id="btn-hytale">Hytale (Pronto)</li>
+            </ul>
+
+            <div class="sidebar-footer">
+                <button id="login-btn" class="account-btn">
+                    <span class="account-avatar">👤</span>
+                    <span id="account-label">Iniciar sesión</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Contenido Principal -->
+        <main class="content">
+            <div class="hero">
+                <h1 id="game-title">Lumineria Launcher</h1>
+                <p>Selecciona una instancia y prepárate para la aventura.</p>
+
+                <!-- Contenedor donde JS inyectará las tarjetas -->
+                <div id="profiles-grid" class="profiles-grid"></div>
+            </div>
+
+            <!-- Panel de estado general -->
+            <div class="action-panel">
+                <p id="status-text">Cargando datos...</p>
+            </div>
+
+            <!-- Panel de ajustes: RAM min/max + args extra de Java -->
+            <div class="action-panel settings-panel">
+                <h2 class="panel-title">Ajustes de Java</h2>
+                <div class="settings-grid">
+                    <label>RAM mínima (MB)
+                        <input id="ram-min-input" type="number" step="256">
+                    </label>
+                    <label>RAM máxima (MB)
+                        <input id="ram-max-input" type="number" step="256">
+                    </label>
+                </div>
+                <p id="ram-max-hint" class="hint-text"></p>
+                <label>Argumentos extra de Java
+                    <input id="java-args-input" placeholder="-XX:+UseG1GC ...">
+                </label>
+                <button id="settings-save-btn" class="secondary-btn">Guardar ajustes</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de inicio de sesión -->
+    <div id="login-modal" class="modal hidden">
+        <div class="modal-box">
+            <button id="login-modal-close" class="modal-close">×</button>
+            <h2>Iniciar sesión</h2>
+            <input id="login-username-input" placeholder="Nombre de usuario (no premium)" required maxlength="16">
+            <button id="login-offline-btn" class="secondary-btn">Jugar sin cuenta premium</button>
+            <hr>
+            <button id="login-microsoft-btn" class="primary-btn">Iniciar sesión con Microsoft (Próximamente)</button>
+            <p id="login-status"></p>
+        </div>
+    </div>
+
+    <!-- Modal de gestión de mods (estilo CurseForge: lista + activar/desactivar) -->
+    <div id="mods-modal" class="modal hidden">
+        <div class="modal-box modal-box-wide">
+            <button id="mods-modal-close" class="modal-close">×</button>
+            <h2 id="mods-modal-title">Mods de la instancia</h2>
+
+            <div class="mods-toolbar">
+                <input id="mods-search-input" placeholder="Buscar mod...">
+                <span id="mods-count-label" class="mods-count-label"></span>
+            </div>
+
+            <div id="mods-list" class="mods-list">
+                <p class="mods-empty-state">Cargando mods...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Importar JS como Módulo -->
+    <script type="module" src="js/main.js"></script>
+    <div id="console-panel" class="console-panel hidden">
+        <div class="console-header">
+            <span>Consola</span>
+            <button id="console-clear-btn">Limpiar</button>
+            <button id="console-close-btn">×</button>
+        </div>
+        <pre id="console-output"></pre>
+    </div>
+    <button id="console-toggle-btn" class="console-toggle-btn">🖥️ Consola</button>
+</body>
+
+</html>

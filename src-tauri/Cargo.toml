@@ -1,0 +1,52 @@
+[package]
+name = "lumineria_launcher"
+version = "0.1.0"
+description = "A Tauri App"
+authors = ["you"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "lumineria_launcher_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# --- CORE DE TAURI (Mantenido intacto + features para iconos) ---
+tauri = { version = "2", features = ["image-ico", "image-png"] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# --- PLUGINS EXTRA DE TAURI V2 ---
+tauri-plugin-shell = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+
+# --- ASINCRONÍA Y UTILIDADES ---
+tokio = { version = "1", features = ["full"] }
+futures-util = "0.3"
+anyhow = "1.0"
+
+# --- RED Y DESCARGAS (Versión corregida a estable) ---
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+
+# --- EXTRACCIÓN Y ARCHIVOS (Versiones corregidas) ---
+zip = "2.1"
+tar = "0.4"
+flate2 = "1.0"
+
+# --- SISTEMA, ENCRIPTACIÓN Y OTROS ---
+open = "5"
+md5 = "0.8"
+hex = "0.4"
+sysinfo = "0.32"
+
+# --- PARSEO DE TOML (Versión corregida a estable para Rust) ---
+toml = "0.8"
