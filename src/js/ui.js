@@ -74,6 +74,18 @@ function buildProfileCard(id, profile) {
     `;
 
     card.addEventListener('click', (event) => {
+        if (event.target.closest('button') && event.target.dataset.action !== 'play') return;
+        const actionBtn = event.target.closest('[data-action]');
+        if (actionBtn && actionBtn.dataset.action === 'toggle-menu') {
+            event.stopPropagation();
+            toggleCardDropdown(id);
+            return;
+        }
+        closeAllDropdowns();
+        document.dispatchEvent(new CustomEvent('lumineria:open-instance-detail', { detail: { id } }));
+    });
+
+    card.addEventListener('click', (event) => {
         if (event.target.closest('button')) return;
         setProfileSelection(id);
         highlightSelectedCard(id);

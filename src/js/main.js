@@ -2,8 +2,8 @@ import { fetchProfiles, loadSession } from './state.js';
 import { drawProfiles, updateStatus, initSettingsPanel } from './ui.js';
 import { iniciarJuego, abrirCarpetaInstancia } from './launcher.js';
 import { openLoginModal, closeLoginModal, handleOfflineLogin, handleMicrosoftLogin, restoreSession } from './auth.js';
-import { openModsModal, closeModsModal } from './mods.js';
-import { initConsole } from './console.js';
+import { initInstanceDetail, openInstanceDetail } from './instanceDetail.js';
+import { initCreator } from './creator.js'; // <--- ESTO FALTABA Y ROMPÍA TODO
 
 async function checkForUpdates() {
     try {
@@ -28,7 +28,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         await fetchProfiles();
         drawProfiles();
         await initSettingsPanel();
-        initConsole();
+        initInstanceDetail();
+        initCreator(); // Ahora sí funcionará porque ya lo importamos
+
+        const viewGrid = document.getElementById('view-grid');
+        const viewExplore = document.getElementById('view-explore');
+        const viewInstance = document.getElementById('view-instance');
+
+        document.getElementById('btn-my-instances').addEventListener('click', (e) => {
+            document.querySelectorAll('.game-list li').forEach(li => li.classList.remove('active'));
+            e.target.classList.add('active');
+            viewExplore.classList.add('hidden');
+            viewInstance.classList.add('hidden');
+            viewGrid.classList.remove('hidden');
+        });
+
+        document.getElementById('btn-explore-modpacks').addEventListener('click', (e) => {
+            document.querySelectorAll('.game-list li').forEach(li => li.classList.remove('active'));
+            e.target.classList.add('active');
+            viewGrid.classList.add('hidden');
+            viewInstance.classList.add('hidden');
+            viewExplore.classList.remove('hidden');
+        });
 
         const savedSession = await loadSession();
         if (savedSession) {
@@ -43,11 +64,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.addEventListener('lumineria:open-folder', (event) => {
             abrirCarpetaInstancia(event.detail.id);
         });
+
         document.addEventListener('lumineria:open-mods', (event) => {
-            openModsModal(event.detail.id);
+            openInstanceDetail(event.detail.id);
+            const tabModsBtn = document.querySelector('.tab-btn[data-tab="tab-mods"]');
+            if (tabModsBtn) tabModsBtn.click();
         });
 
-        document.getElementById('mods-modal-close')?.addEventListener('click', closeModsModal);
+        document.addEventListener('lumineria:open-instance-detail', (event) => {
+            openInstanceDetail(event.detail.id);
+        });
 
         document.getElementById('login-btn')?.addEventListener('click', openLoginModal);
         document.getElementById('login-modal-close')?.addEventListener('click', closeLoginModal);

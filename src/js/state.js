@@ -7,18 +7,18 @@ export let SETTINGS = { ramMinMb: 1024, ramMaxMb: 4096, javaArgsExtra: "" };
 
 let baseDirectoryCache = null;
 
+// 1. CARGA DE PERFILES DESDE RUST
 export async function fetchProfiles() {
-    const res = await fetch('./profiles.json');
-    if (!res.ok) {
-        throw new Error(`No se pudo cargar profiles.json (${res.status})`);
-    }
-    PROFILES = await res.json();
+    const baseDir = await getBaseDirectory();
+    PROFILES = await invoke('load_profiles', { baseDir });
     return PROFILES;
 }
 
-export async function resetInstanceLibraries(profileId) {
-    const instanceDir = await getInstanceDir(profileId);
-    await invoke('reset_instance_libraries', { instanceDir });
+// 2. GUARDAR NUEVOS PERFILES (PERSISTENCIA)
+export async function saveProfileToDisk(profileId, profileData) {
+    const baseDir = await getBaseDirectory();
+    PROFILES[profileId] = profileData;
+    await invoke('save_profile', { baseDir, profileId, profileData });
 }
 
 export function setProfileSelection(id) {
@@ -32,9 +32,24 @@ export async function getBaseDirectory() {
     return baseDirectoryCache;
 }
 
+// 3. LOGICA VANILLA vs CUSTOM PATH
 export async function getInstanceDir(profileId) {
+    const profile = PROFILES[profileId];
+    if (!profile) throw new Error("Perfil no encontrado");
+
+    // Si es Vanilla, usa la carpeta .minecraft por defecto del sistema
+    if (profile.loader_name.toLowerCase() === 'vanilla') {
+        return await invoke('get_minecraft_default_path');
+    }
+    
+    // Si es modificado (Fabric, Forge), usa tu carpeta aislada en LumineriaData
     const baseDir = await getBaseDirectory();
     return `${baseDir}/instances/${profileId}`;
+}
+
+export async function resetInstanceLibraries(profileId) {
+    const instanceDir = await getInstanceDir(profileId);
+    await invoke('reset_instance_libraries', { instanceDir });
 }
 
 export async function loadSettings() {
@@ -86,7 +101,6 @@ export async function loginMicrosoftPoll(deviceCode, interval, expiresIn) {
     AUTH_SESSION = await invoke('ms_login_poll', { deviceCode, interval, expiresIn });
     return AUTH_SESSION;
 }
-
 
 export async function saveSession() {
     if (!AUTH_SESSION) return;

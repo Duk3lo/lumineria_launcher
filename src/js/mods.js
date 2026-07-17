@@ -1,8 +1,6 @@
 import { PROFILES, listMods, toggleMod } from './state.js';
 import { refreshCardStatus } from './ui.js';
 
-const modsModal = document.getElementById('mods-modal');
-const modsModalTitle = document.getElementById('mods-modal-title');
 const modsListEl = document.getElementById('mods-list');
 const modsCountLabel = document.getElementById('mods-count-label');
 const modsSearchInput = document.getElementById('mods-search-input');
@@ -10,19 +8,10 @@ const modsSearchInput = document.getElementById('mods-search-input');
 let currentProfileId = null;
 let currentMods = [];
 
-export function closeModsModal() {
-    modsModal?.classList.add('hidden');
-    currentProfileId = null;
-}
-
-export async function openModsModal(profileId) {
+export async function renderModsForInstance(profileId) {
     currentProfileId = profileId;
-    const profile = PROFILES[profileId];
-
-    modsModalTitle.innerText = profile ? `Mods de ${profile.title}` : 'Mods de la instancia';
     modsListEl.innerHTML = `<p class="mods-empty-state">Cargando mods...</p>`;
     modsSearchInput.value = '';
-    modsModal?.classList.remove('hidden');
 
     try {
         currentMods = await listMods(profileId);
@@ -62,7 +51,6 @@ function renderModsList(mods) {
 
         const checkbox = row.querySelector('input');
         checkbox.addEventListener('change', () => handleToggle(mod, checkbox));
-
         modsListEl.appendChild(row);
     });
 }
@@ -103,9 +91,4 @@ modsSearchInput?.addEventListener('input', () => {
         ? currentMods.filter(m => m.displayName.toLowerCase().includes(query))
         : currentMods;
     renderModsList(filtered);
-});
-
-document.getElementById('mods-modal-close')?.addEventListener('click', closeModsModal);
-modsModal?.addEventListener('click', (event) => {
-    if (event.target === modsModal) closeModsModal();
 });

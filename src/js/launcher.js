@@ -1,5 +1,6 @@
 import { PROFILES, getBaseDirectory, getInstanceDir, AUTH_SESSION, SETTINGS, resetInstanceLibraries } from './state.js';
 import { updateStatus, updateCardProgress, setCardPlayState, refreshCardStatus } from './ui.js';
+import { setInstanceRunning } from './instanceDetail.js';
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -34,16 +35,24 @@ export async function iniciarJuego(profileId, force = false) {
         await invoke('ensure_launcher_profile', { instanceDir });
         await invoke('ensure_vanilla_version', { instanceDir, mcVersion: profile.mc_version });
 
-        updateStatus(`Verificando Java ${profile.java_version}...`);
-        updateCardProgress(profileId, 15, `Comprobando Java ${profile.java_version}...`);
-        let javaPath;
-        try {
-            javaPath = await invoke('verify_and_get_java', { version: profile.java_version, baseDir });
-        } catch (error) {
-            updateStatus(`Descargando Java aislado (${profile.java_version})...`);
-            updateCardProgress(profileId, 25, `Descargando Java ${profile.java_version}...`);
-            await invoke('download_java_command', { version: profile.java_version, baseDir });
-            javaPath = await invoke('verify_and_get_java', { version: profile.java_version, baseDir });
+        // --- LÓGICA DE JAVA ---
+        let javaPath = "java"; // POR DEFECTO USAMOS EL DEL SISTEMA
+
+        // Si el perfil necesita un Java específico (Ej: Forge/Fabric o si lo declaraste en el creador)
+        if (profile.java_version) {
+            updateStatus(`Verificando Java ${profile.java_version}...`);
+            updateCardProgress(profileId, 15, `Comprobando Java aislado...`);
+            try {
+                javaPath = await invoke('verify_and_get_java', { version: profile.java_version, baseDir });
+            } catch (error) {
+                updateStatus(`Descargando Java aislado (${profile.java_version})...`);
+                updateCardProgress(profileId, 25, `Descargando Java ${profile.java_version}...`);
+                await invoke('download_java_command', { version: profile.java_version, baseDir });
+                javaPath = await invoke('verify_and_get_java', { version: profile.java_version, baseDir });
+            }
+        } else {
+            updateStatus("Usando Java del sistema...");
+            updateCardProgress(profileId, 15, "Verificando instalación...");
         }
 
         let isInstalled = false;
@@ -98,8 +107,12 @@ export async function iniciarJuego(profileId, force = false) {
         });
 
         try {
+            // Avisar a la UI que ya se está ejecutando
+            setInstanceRunning(profileId, true);
+            
             await invoke('launch_minecraft', {
                 options: {
+                    profileId: profileId,
                     instanceDir,
                     versionId: targetVersionId,
                     javaPath,
@@ -123,6 +136,8 @@ export async function iniciarJuego(profileId, force = false) {
         setCardPlayState(profileId, false);
         updateCardProgress(profileId, 0, '');
         console.error(e);
+        // Si falló antes de lanzar el juego, hay que asegurarse de resetear el botón a "Jugar"
+        setInstanceRunning(profileId, false);
     }
 }
 

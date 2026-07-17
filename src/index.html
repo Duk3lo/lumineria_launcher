@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,16 +8,18 @@
     <link rel="stylesheet" href="css/layout.css">
     <link rel="stylesheet" href="css/components.css">
 </head>
-
 <body>
     <div class="launcher-container">
         <div class="main-crystal-overlay"></div>
         <aside class="sidebar">
             <div class="logo">LUMINERIA</div>
             <ul class="game-list">
-                <li class="active" id="btn-minecraft">Minecraft</li>
-                <li id="btn-hytale">Hytale (Pronto)</li>
+                <li class="active" id="btn-my-instances">🎮 Mis Instancias</li>
+                <li id="btn-explore-modpacks">🌐 Explorar Modpacks</li>
             </ul>
+            
+            <!-- Botón de Nueva Instancia (Instalación personalizada) -->
+            <button id="btn-new-instance" class="primary-btn" style="margin: 20px; font-size: 0.9rem; padding: 10px;">+ Nueva Instancia</button>
 
             <div class="sidebar-footer">
                 <button id="login-btn" class="account-btn">
@@ -29,74 +30,131 @@
         </aside>
 
         <main class="content">
-            <div class="hero">
-                <h1 id="game-title">Lumineria Launcher</h1>
-                <p>Selecciona una instancia y prepárate para la aventura.</p>
-
-                <div id="profiles-grid" class="profiles-grid"></div>
-            </div>
-
-            <div class="action-panel">
-                <p id="status-text">Cargando datos...</p>
-            </div>
-
-            <div class="action-panel settings-panel">
-                <h2 class="panel-title">Ajustes de Java</h2>
-                <div class="settings-grid">
-                    <label>RAM mínima (MB)
-                        <input id="ram-min-input" type="number" step="256">
-                    </label>
-                    <label>RAM máxima (MB)
-                        <input id="ram-max-input" type="number" step="256">
-                    </label>
+            <!-- VISTA 1: MIS INSTANCIAS -->
+            <div id="view-grid" class="view-section active">
+                <div class="hero">
+                    <h1 id="game-title">Tus Instancias</h1>
+                    <p>Selecciona una instancia y prepárate para la aventura.</p>
+                    <div id="profiles-grid" class="profiles-grid"></div>
                 </div>
-                <p id="ram-max-hint" class="hint-text"></p>
-                <label>Argumentos extra de Java
-                    <input id="java-args-input" placeholder="-XX:+UseG1GC ...">
-                </label>
-                <button id="settings-save-btn" class="secondary-btn">Guardar ajustes</button>
+                <div class="action-panel">
+                    <p id="status-text">Cargando datos...</p>
+                </div>
+            </div>
+
+            <!-- VISTA 2: EXPLORAR MODPACKS (Placeholder) -->
+            <div id="view-explore" class="view-section hidden">
+                <div class="hero">
+                    <h1>Explorar Modpacks</h1>
+                    <p>Descarga clientes oficiales y comunitarios desde nuestra base de datos.</p>
+                    <div id="explore-grid" class="profiles-grid">
+                        <p class="mods-empty-state">Conectando a la base de datos...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA 3: DETALLE DE INSTANCIA -->
+            <div id="view-instance" class="view-section hidden">
+                <div class="instance-header">
+                    <button id="btn-back-grid" class="secondary-btn">← Volver</button>
+                    <h1 id="instance-detail-title">Nombre de la instancia</h1>
+                </div>
+
+                <div class="instance-controls">
+                    <button id="btn-instance-play" class="primary-btn play-btn-large">Jugar</button>
+                    <div id="instance-status-text">Lista para jugar</div>
+                </div>
+
+                <div class="instance-tabs">
+                    <button class="tab-btn active" data-tab="tab-logs">Logs</button>
+                    <button class="tab-btn" data-tab="tab-mods">Mods</button>
+                    <button class="tab-btn" data-tab="tab-resourcepacks">Paquetes de Recursos</button> <!-- NUEVA PESTAÑA -->
+                    <button class="tab-btn" data-tab="tab-settings">Ajustes</button>
+                    <button class="tab-btn" id="btn-open-folder-detail">Carpeta ↗</button>
+                </div>
+
+                <div class="instance-tab-content">
+                    <div id="tab-logs" class="tab-pane active">
+                        <div class="instance-logs-container"><pre id="instance-logs-output"></pre></div>
+                    </div>
+
+                    <div id="tab-mods" class="tab-pane hidden">
+                        <div class="mods-toolbar">
+                            <input id="mods-search-input" placeholder="Buscar mod...">
+                            <span id="mods-count-label" class="mods-count-label"></span>
+                        </div>
+                        <div id="mods-list" class="mods-list instance-mods-list"><p class="mods-empty-state">Cargando mods...</p></div>
+                    </div>
+
+                    <!-- PESTAÑA DE RESOURCE PACKS -->
+                    <div id="tab-resourcepacks" class="tab-pane hidden">
+                        <div class="mods-toolbar">
+                            <input id="rp-search-input" placeholder="Buscar paquete...">
+                            <span id="rp-count-label" class="mods-count-label"></span>
+                        </div>
+                        <div id="rp-list" class="mods-list instance-mods-list"><p class="mods-empty-state">Cargando paquetes de recursos...</p></div>
+                    </div>
+
+                    <div id="tab-settings" class="tab-pane hidden">
+                        <div class="action-panel settings-panel" style="max-width: 100%; box-shadow: none;">
+                            <p class="hint-text" style="margin-bottom: 10px;">Ajustes aplicados al lanzar esta instancia.</p>
+                            <div class="settings-grid">
+                                <label>RAM mínima (MB)<input id="ram-min-input" type="number" step="256"></label>
+                                <label>RAM máxima (MB)<input id="ram-max-input" type="number" step="256"></label>
+                            </div>
+                            <p id="ram-max-hint" class="hint-text"></p>
+                            <label>Argumentos extra de Java<input id="java-args-input" placeholder="-XX:+UseG1GC ..."></label>
+                            <button id="settings-save-btn" class="secondary-btn" style="margin-top: 10px;">Guardar ajustes</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
 
+    <!-- MODAL DE NUEVA INSTANCIA (PERSONALIZADA) -->
+    <div id="new-instance-modal" class="modal hidden">
+        <div class="modal-box">
+            <button id="new-instance-close" class="modal-close">×</button>
+            <h2>Crear Instalación Personalizada</h2>
+            <p class="hint-text">Crea una instancia desde cero.</p>
+            
+            <label style="display: flex; flex-direction: column; gap: 5px; margin-top: 10px;">Nombre de la instancia
+                <input id="new-instance-name" placeholder="Ej: Mi Super Survival" required>
+            </label>
+
+            <label style="display: flex; flex-direction: column; gap: 5px; margin-top: 10px;">Tipo de cargador
+                <select id="new-instance-type" style="padding: 10px; background: rgba(255,255,255,0.05); color: white; border: 1px solid var(--border-soft); border-radius: var(--radius-sm);">
+                    <option value="vanilla">Vanilla</option>
+                    <option value="fabric">Fabric</option>
+                    <option value="forge">Forge / NeoForge (Próximamente)</option>
+                </select>
+            </label>
+
+            <label style="display: flex; flex-direction: column; gap: 5px; margin-top: 10px;">Versión de Minecraft
+                <select id="new-instance-version" style="padding: 10px; background: rgba(255,255,255,0.05); color: white; border: 1px solid var(--border-soft); border-radius: var(--radius-sm);">
+                    <option>Cargando versiones...</option>
+                </select>
+            </label>
+
+            <button id="btn-create-instance" class="primary-btn" style="margin-top: 20px;">Crear Instancia</button>
+        </div>
+    </div>
+
+    <!-- MODAL DE LOGIN -->
     <div id="login-modal" class="modal hidden">
+        <!-- (Tu modal de login igual que siempre) -->
         <div class="modal-box">
             <button id="login-modal-close" class="modal-close">×</button>
             <h2>Iniciar sesión</h2>
-            <input id="login-username-input" placeholder="Nombre de usuario (no premium)" required maxlength="16">
+            <input id="login-username-input" placeholder="Nombre de usuario" required maxlength="16">
             <button id="login-offline-btn" class="secondary-btn">Jugar sin cuenta premium</button>
             <hr>
-            <button id="login-microsoft-btn" class="primary-btn">Iniciar sesión con Microsoft (Próximamente)</button>
+            <button id="login-microsoft-btn" class="primary-btn">Iniciar con Microsoft</button>
             <p id="login-status"></p>
         </div>
     </div>
 
-    <div id="mods-modal" class="modal hidden">
-        <div class="modal-box modal-box-wide">
-            <button id="mods-modal-close" class="modal-close">×</button>
-            <h2 id="mods-modal-title">Mods de la instancia</h2>
-
-            <div class="mods-toolbar">
-                <input id="mods-search-input" placeholder="Buscar mod...">
-                <span id="mods-count-label" class="mods-count-label"></span>
-            </div>
-
-            <div id="mods-list" class="mods-list">
-                <p class="mods-empty-state">Cargando mods...</p>
-            </div>
-        </div>
-    </div>
-
     <script type="module" src="js/main.js"></script>
-    <div id="console-panel" class="console-panel hidden">
-        <div class="console-header">
-            <span>Consola</span>
-            <button id="console-clear-btn">Limpiar</button>
-            <button id="console-close-btn">×</button>
-        </div>
-        <pre id="console-output"></pre>
-    </div>
-    <button id="console-toggle-btn" class="console-toggle-btn">🖥️ Consola</button>
 </body>
-
 </html>
