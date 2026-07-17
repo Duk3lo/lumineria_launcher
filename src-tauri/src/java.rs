@@ -27,19 +27,28 @@ pub enum JavaStatus {
 pub fn check_local_java(required_version: u8, base_dir: &str) -> JavaStatus {
     let runtime_dir = PathBuf::from(base_dir).join("runtimes").join(format!("jre-{}", required_version));
     if let Some(java_path) = find_executable(&runtime_dir) {
-        match StdCommand::new(&java_path).arg("-version").output() {
-            Ok(output) => {
-                if output.status.success() {
-                    return JavaStatus::Ready(java_path);
-                } else {
-                    println!("Java existe pero está corrupto o falló al ejecutarse.");
-                }
-            },
-            Err(e) => println!("Error al intentar ejecutar Java: {}", e),
+        if detect_java_major_version(&java_path.to_string_lossy()) == Some(required_version) {
+            return JavaStatus::Ready(java_path);
         }
     }
-    
+    if detect_java_major_version("java") == Some(required_version) {
+        return JavaStatus::Ready(PathBuf::from("java"));
+    }
+
     JavaStatus::Missing
+}
+
+fn detect_java_major_version(java_bin: &str) -> Option<u8> {
+    let output = StdCommand::new(java_bin).arg("-version").output().ok()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let first_line = stderr.lines().next()?;
+    let version_str = first_line.split('"').nth(1)?;
+
+    if let Some(rest) = version_str.strip_prefix("1.") {
+        rest.split('.').next()?.parse().ok()
+    } else {
+        version_str.split('.').next()?.parse().ok()
+    }
 }
 
 fn find_executable(base_dir: &Path) -> Option<PathBuf> {
