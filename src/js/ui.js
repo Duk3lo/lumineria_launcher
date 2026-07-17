@@ -6,37 +6,53 @@ import {
     saveSettings,
     getSystemRamMb,
     getInstanceStatus,
+    deleteProfileFromDisk
 } from './state.js';
 
+const { invoke } = window.__TAURI__.core;
 const statusText = document.getElementById('status-text');
 const profilesGrid = document.getElementById('profiles-grid');
 
 export function updateStatus(text) {
-    statusText.innerText = text;
+    if (statusText) statusText.innerText = text;
 }
 
-export function drawProfiles() {
+export async function drawProfiles() {
+    if (!profilesGrid) return;
     profilesGrid.innerHTML = '';
-    const profileKeys = Object.keys(PROFILES);
 
-    if (profileKeys.length === 0) {
-        profilesGrid.innerHTML = `<p class="mods-empty-state">No se encontraron instancias en profiles.json</p>`;
-        return;
+    if (Object.keys(PROFILES).length > 0) {
+        renderSection("Mis Instancias Personalizadas", PROFILES, false);
     }
+    try {
+        const vanillaLocales = await invoke('get_installed_vanilla_versions');
+        if (Object.keys(vanillaLocales).length > 0) {
+            renderSection("Detectado en .minecraft (PC)", vanillaLocales, true);
+        }
+    } catch (e) {
+        console.warn("No se pudieron buscar versiones de .minecraft:", e);
+    }
+    if (profilesGrid.innerHTML === '') {
+        profilesGrid.innerHTML = `<p class="mods-empty-state">No hay instancias. ¡Crea una nueva o instala una oficial!</p>`;
+    }
+    refreshAllCardStatuses(Object.keys(PROFILES));
+}
+function renderSection(title, items, isVanillaLocal) {
+    const header = document.createElement('h2');
+    header.className = 'section-title';
+    header.innerText = title;
+    header.style = "grid-column: 1 / -1; margin: 30px 0 15px 0; font-size: 1.1rem; color: var(--primary-glow); border-left: 4px solid var(--primary-glow); padding-left: 15px; background: rgba(192, 132, 252, 0.05); padding-top: 5px; padding-bottom: 5px; border-radius: 0 8px 8px 0;";
+    profilesGrid.appendChild(header);
 
-    profileKeys.forEach(id => {
-        profilesGrid.appendChild(buildProfileCard(id, PROFILES[id]));
+    Object.keys(items).forEach(id => {
+        profilesGrid.appendChild(buildProfileCard(id, items[id], isVanillaLocal));
     });
-
-    setProfileSelection(profileKeys[0]);
-    highlightSelectedCard(profileKeys[0]);
-
-    refreshAllCardStatuses(profileKeys);
 }
 
-function buildProfileCard(id, profile) {
+function buildProfileCard(id, profile, isVanillaLocal) {
     const card = document.createElement('div');
     card.className = 'profile-card';
+    if (isVanillaLocal) card.classList.add('local-pc-card');
     card.id = `card-${id}`;
     card.dataset.profileId = id;
 
@@ -50,7 +66,7 @@ function buildProfileCard(id, profile) {
                 <span class="status-dot" id="status-dot-${id}" title="Comprobando..."></span>
             </div>
             <div class="profile-badges">
-                <span class="badge loader">${profile.loader_name}</span>
+                <span class="badge loader">${profile.loader_name} ${isVanillaLocal ? '(PC)' : ''}</span>
                 <span class="badge version">${profile.mc_version}</span>
             </div>
 
@@ -62,81 +78,59 @@ function buildProfileCard(id, profile) {
             <div class="profile-actions">
                 <div class="play-button-group">
                     <button class="play-btn-card" id="play-btn-${id}" data-action="play">Jugar</button>
-                    <button class="play-dropdown-toggle" id="dropdown-toggle-${id}" data-action="toggle-menu" title="Más opciones">⋮</button>
+                    ${!isVanillaLocal ? `
+                    <button class="play-dropdown-toggle" id="dropdown-toggle-${id}" data-action="toggle-menu">⋮</button>
                     <div class="card-dropdown-menu hidden" id="dropdown-menu-${id}">
-                        <button data-action="open-folder">📂 Carpeta de instalación</button>
-                        <button data-action="view-mods">🧩 Ver mods (<span id="mods-count-${id}">0</span>)</button>
-                        <button data-action="reinstall">🔄 Reinstalar / verificar</button>
+                        <button data-action="open-folder">📂 Abrir Carpeta</button>
+                        <button data-action="view-mods">🧩 Ver Mods</button>
+                        <button data-action="reinstall">🔄 Reinstalar</button>
+                        <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;">
+                        <button data-action="delete" style="color: #f87171;">🗑 Eliminar Instancia</button>
                     </div>
+                    ` : ''}
                 </div>
             </div>
         </div>
     `;
 
-    card.addEventListener('click', (event) => {
-        if (event.target.closest('button') && event.target.dataset.action !== 'play') return;
-        const actionBtn = event.target.closest('[data-action]');
-        if (actionBtn && actionBtn.dataset.action === 'toggle-menu') {
-            event.stopPropagation();
-            toggleCardDropdown(id);
-            return;
-        }
-        closeAllDropdowns();
-        document.dispatchEvent(new CustomEvent('lumineria:open-instance-detail', { detail: { id } }));
-    });
-
-    card.addEventListener('click', (event) => {
-        if (event.target.closest('button')) return;
-        setProfileSelection(id);
-        highlightSelectedCard(id);
-    });
-
-    card.addEventListener('click', (event) => {
-        const actionBtn = event.target.closest('[data-action]');
-        if (!actionBtn) return;
-        const action = actionBtn.dataset.action;
-
+    card.addEventListener('click', async (event) => {
+        const btn = event.target.closest('button');
+        const action = btn ? btn.dataset.action : null;
         if (action === 'toggle-menu') {
             event.stopPropagation();
             toggleCardDropdown(id);
             return;
         }
         if (action === 'play') {
-            setProfileSelection(id);
-            highlightSelectedCard(id);
+            event.stopPropagation();
             closeAllDropdowns();
-            document.dispatchEvent(new CustomEvent('lumineria:play-profile', { detail: { id } }));
+            document.dispatchEvent(new CustomEvent('lumineria:play-profile', { detail: { id, isLocal: isVanillaLocal } }));
             return;
         }
-        if (action === 'open-folder') {
-            closeAllDropdowns();
-            document.dispatchEvent(new CustomEvent('lumineria:open-folder', { detail: { id } }));
+        if (action === 'delete') {
+            event.stopPropagation();
+            const confirmado = confirm(`¿Eliminar "${profile.title}"? Se borrarán todos los archivos (mods, mundos, etc) de esta instancia.`);
+            if (confirmado) {
+                try {
+                    await deleteProfileFromDisk(id);
+                    updateStatus(`Instancia "${profile.title}" eliminada.`);
+                    drawProfiles();
+                } catch (e) {
+                    alert("Error al eliminar: " + e);
+                }
+            }
             return;
         }
-        if (action === 'view-mods') {
-            closeAllDropdowns();
-            document.dispatchEvent(new CustomEvent('lumineria:open-mods', { detail: { id } }));
-            return;
-        }
-        if (action === 'reinstall') {
-            closeAllDropdowns();
-            setProfileSelection(id);
-            document.dispatchEvent(new CustomEvent('lumineria:play-profile', { detail: { id, force: true } }));
-            return;
-        }
+        closeAllDropdowns();
+        document.dispatchEvent(new CustomEvent('lumineria:open-instance-detail', { detail: { id, isLocal: isVanillaLocal } }));
     });
 
     return card;
 }
 
-function highlightSelectedCard(id) {
-    document.querySelectorAll('.profile-card').forEach(card => card.classList.remove('selected'));
-    const selectedCard = document.getElementById(`card-${id}`);
-    if (selectedCard) selectedCard.classList.add('selected');
-}
-
 function toggleCardDropdown(id) {
     const menu = document.getElementById(`dropdown-menu-${id}`);
+    if (!menu) return;
     const isOpen = !menu.classList.contains('hidden');
     closeAllDropdowns();
     if (!isOpen) menu.classList.remove('hidden');
@@ -145,13 +139,6 @@ function toggleCardDropdown(id) {
 export function closeAllDropdowns() {
     document.querySelectorAll('.card-dropdown-menu').forEach(menu => menu.classList.add('hidden'));
 }
-
-document.addEventListener('click', (event) => {
-    if (!event.target.closest('.play-button-group')) {
-        closeAllDropdowns();
-    }
-});
-
 
 async function refreshAllCardStatuses(profileKeys) {
     for (const id of profileKeys) {
@@ -164,32 +151,19 @@ export async function refreshCardStatus(id) {
         const status = await getInstanceStatus(id);
         const dot = document.getElementById(`status-dot-${id}`);
         const playBtn = document.getElementById(`play-btn-${id}`);
-        const openFolderBtn = document.querySelector(`#dropdown-menu-${id} [data-action="open-folder"]`);
-        const modsCountLabel = document.getElementById(`mods-count-${id}`);
 
         if (dot) {
             dot.classList.toggle('installed', status.installed);
-            dot.title = status.installed ? 'Instalado' : 'No instalado';
         }
-        if (playBtn) {
-            playBtn.innerText = status.installed ? 'Jugar' : 'Instalar y jugar';
+        if (playBtn && !playBtn.innerText.includes('Detener')) {
+            playBtn.innerText = status.installed ? 'Jugar' : 'Instalar';
         }
-        if (openFolderBtn) {
-            openFolderBtn.disabled = !status.installed;
-        }
-        if (modsCountLabel) {
-            modsCountLabel.innerText = status.modsCount ?? 0;
-        }
-    } catch (e) {
-        console.warn(`No se pudo comprobar el estado de ${id}:`, e);
-    }
+    } catch (e) { }
 }
 
 export function setCardPlayState(id, disabled) {
-    const playBtn = document.getElementById(`play-btn-${id}`);
-    const dropdownToggle = document.getElementById(`dropdown-toggle-${id}`);
+    const playBtn = document.getElementById('play-btn-' + id);
     if (playBtn) playBtn.disabled = disabled;
-    if (dropdownToggle) dropdownToggle.disabled = disabled;
 }
 
 export function updateCardProgress(id, percent, label) {
@@ -198,24 +172,18 @@ export function updateCardProgress(id, percent, label) {
     const labelEl = document.getElementById(`card-progress-label-${id}`);
     if (!container || !fill) return;
 
-    if (percent > 0 && percent < 100) {
-        container.classList.remove('hidden');
-    }
+    if (percent > 0 && percent < 100) container.classList.remove('hidden');
     fill.style.width = `${percent}%`;
     if (labelEl && label) labelEl.innerText = label;
 
-    if (percent >= 100) {
-        setTimeout(() => container.classList.add('hidden'), 1500);
-    }
+    if (percent >= 100) setTimeout(() => container.classList.add('hidden'), 1500);
 }
 
 export async function initSettingsPanel() {
     await loadSettings();
-
     const ramMinInput = document.getElementById('ram-min-input');
     const ramMaxInput = document.getElementById('ram-max-input');
     const javaArgsInput = document.getElementById('java-args-input');
-    const ramMaxHint = document.getElementById('ram-max-hint');
     const saveBtn = document.getElementById('settings-save-btn');
 
     if (!ramMinInput || !ramMaxInput) return;
@@ -224,28 +192,17 @@ export async function initSettingsPanel() {
     ramMaxInput.value = SETTINGS.ramMaxMb;
     if (javaArgsInput) javaArgsInput.value = SETTINGS.javaArgsExtra || "";
 
-    try {
-        const totalRam = await getSystemRamMb();
-        ramMaxInput.max = totalRam;
-        if (ramMaxHint) ramMaxHint.innerText = `RAM total del sistema: ${totalRam} MB`;
-    } catch (e) {
-        console.warn('No se pudo detectar la RAM del sistema:', e);
-    }
-
     saveBtn?.addEventListener('click', async () => {
-        const ramMinMb = parseInt(ramMinInput.value, 10);
-        const ramMaxMb = parseInt(ramMaxInput.value, 10);
-
-        if (isNaN(ramMinMb) || isNaN(ramMaxMb) || ramMinMb <= 0 || ramMaxMb < ramMinMb) {
-            updateStatus("Valores de RAM inválidos");
-            return;
-        }
+        const min = parseInt(ramMinInput.value);
+        const max = parseInt(ramMaxInput.value);
+        
+        if(min > max) return alert("La RAM mínima no puede ser mayor a la máxima.");
 
         await saveSettings({
-            ramMinMb,
-            ramMaxMb,
-            javaArgsExtra: javaArgsInput ? javaArgsInput.value : ""
+            ramMinMb: min,
+            ramMaxMb: max,
+            javaArgsExtra: javaArgsInput.value
         });
-        updateStatus("Ajustes guardados");
+        updateStatus("Ajustes guardados correctamente.");
     });
 }

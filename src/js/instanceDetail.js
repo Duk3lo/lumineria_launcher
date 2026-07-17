@@ -2,6 +2,8 @@ import { PROFILES } from './state.js';
 import { iniciarJuego, abrirCarpetaInstancia } from './launcher.js';
 import { renderModsForInstance } from './mods.js';
 import { renderResourcePacksForInstance } from './resourcePacks.js';
+import { deleteProfileFromDisk } from './state.js';
+import { drawProfiles } from './ui.js';
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -39,6 +41,16 @@ export function initInstanceDetail() {
         abrirCarpetaInstancia(currentDetailProfileId);
     });
 
+    document.getElementById('btn-instance-delete')?.addEventListener('click', async () => {
+        if (!currentDetailProfileId) return;
+        const id = currentDetailProfileId;
+        if (confirm("¿Eliminar esta instancia permanentemente?")) {
+            await deleteProfileFromDisk(id);
+            document.getElementById('btn-back-grid').click();
+            drawProfiles();
+        }
+    });
+
     const tabBtns = document.querySelectorAll('.tab-btn[data-tab]');
     const tabPanes = document.querySelectorAll('.tab-pane');
 
@@ -61,7 +73,7 @@ export function initInstanceDetail() {
     listen('game-log', (event) => {
         const { id, line } = event.payload;
         if (!INSTANCE_STATE[id]) INSTANCE_STATE[id] = { isRunning: true, logs: [] };
-        
+
         INSTANCE_STATE[id].logs.push(line);
         if (INSTANCE_STATE[id].logs.length > 2000) INSTANCE_STATE[id].logs.shift();
         if (currentDetailProfileId === id) {

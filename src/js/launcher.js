@@ -34,11 +34,7 @@ export async function iniciarJuego(profileId, force = false) {
         await invoke('ensure_dir', { path: installersDir });
         await invoke('ensure_launcher_profile', { instanceDir });
         await invoke('ensure_vanilla_version', { instanceDir, mcVersion: profile.mc_version });
-
-        // --- LÓGICA DE JAVA ---
-        let javaPath = "java"; // POR DEFECTO USAMOS EL DEL SISTEMA
-
-        // Si el perfil necesita un Java específico (Ej: Forge/Fabric o si lo declaraste en el creador)
+        let javaPath = "java";
         if (profile.java_version) {
             updateStatus(`Verificando Java ${profile.java_version}...`);
             updateCardProgress(profileId, 15, `Comprobando Java aislado...`);
@@ -107,7 +103,6 @@ export async function iniciarJuego(profileId, force = false) {
         });
 
         try {
-            // Avisar a la UI que ya se está ejecutando
             setInstanceRunning(profileId, true);
             
             await invoke('launch_minecraft', {
@@ -136,7 +131,6 @@ export async function iniciarJuego(profileId, force = false) {
         setCardPlayState(profileId, false);
         updateCardProgress(profileId, 0, '');
         console.error(e);
-        // Si falló antes de lanzar el juego, hay que asegurarse de resetear el botón a "Jugar"
         setInstanceRunning(profileId, false);
     }
 }

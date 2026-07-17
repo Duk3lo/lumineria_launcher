@@ -6,15 +6,11 @@ export let AUTH_SESSION = null;
 export let SETTINGS = { ramMinMb: 1024, ramMaxMb: 4096, javaArgsExtra: "" };
 
 let baseDirectoryCache = null;
-
-// 1. CARGA DE PERFILES DESDE RUST
 export async function fetchProfiles() {
     const baseDir = await getBaseDirectory();
     PROFILES = await invoke('load_profiles', { baseDir });
     return PROFILES;
 }
-
-// 2. GUARDAR NUEVOS PERFILES (PERSISTENCIA)
 export async function saveProfileToDisk(profileId, profileData) {
     const baseDir = await getBaseDirectory();
     PROFILES[profileId] = profileData;
@@ -31,18 +27,11 @@ export async function getBaseDirectory() {
     }
     return baseDirectoryCache;
 }
-
-// 3. LOGICA VANILLA vs CUSTOM PATH
 export async function getInstanceDir(profileId) {
     const profile = PROFILES[profileId];
-    if (!profile) throw new Error("Perfil no encontrado");
-
-    // Si es Vanilla, usa la carpeta .minecraft por defecto del sistema
-    if (profile.loader_name.toLowerCase() === 'vanilla') {
+    if (!profile || profile.loader_name.toLowerCase() === 'vanilla') {
         return await invoke('get_minecraft_default_path');
     }
-    
-    // Si es modificado (Fabric, Forge), usa tu carpeta aislada en LumineriaData
     const baseDir = await getBaseDirectory();
     return `${baseDir}/instances/${profileId}`;
 }
@@ -121,4 +110,10 @@ export async function clearSession() {
     const baseDir = await getBaseDirectory();
     await invoke('clear_session', { baseDir });
     AUTH_SESSION = null;
+}
+
+export async function deleteProfileFromDisk(profileId) {
+    const baseDir = await getBaseDirectory();
+    await invoke('delete_profile', { baseDir, profileId });
+    delete PROFILES[profileId];
 }

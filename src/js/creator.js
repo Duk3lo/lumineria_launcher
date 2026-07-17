@@ -4,6 +4,7 @@ import { updateStatus, drawProfiles } from './ui.js';
 const modal = document.getElementById('new-instance-modal');
 const typeSelect = document.getElementById('new-instance-type');
 const versionSelect = document.getElementById('new-instance-version');
+const loaderVersionSelect = document.getElementById('new-instance-loader-version');
 const nameInput = document.getElementById('new-instance-name');
 
 let mojangVersionsCache = [];
@@ -11,7 +12,9 @@ let mojangVersionsCache = [];
 export function initCreator() {
     document.getElementById('btn-new-instance').addEventListener('click', openCreatorModal);
     document.getElementById('new-instance-close').addEventListener('click', () => modal.classList.add('hidden'));
-    
+    typeSelect.addEventListener('change', populateLoaderVersions);
+    versionSelect.addEventListener('change', populateLoaderVersions);
+
     document.getElementById('btn-create-instance').addEventListener('click', createInstance);
 }
 
@@ -24,23 +27,37 @@ async function openCreatorModal() {
         try {
             const res = await fetch("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json");
             const data = await res.json();
-            // Filtrar solo las releases oficiales
             mojangVersionsCache = data.versions.filter(v => v.type === "release").map(v => v.id);
-            populateVersions();
+            versionSelect.innerHTML = mojangVersionsCache.map(v => `<option value="${v}">${v}</option>`).join('');
+            populateLoaderVersions();
         } catch (e) {
             versionSelect.innerHTML = '<option>Error al cargar versiones</option>';
         }
     }
 }
 
-function populateVersions() {
-    versionSelect.innerHTML = '';
-    mojangVersionsCache.forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v;
-        opt.innerText = v;
-        versionSelect.appendChild(opt);
-    });
+async function populateLoaderVersions() {
+    const type = typeSelect.value;
+    const mcVersion = versionSelect.value;
+    
+    if (!loaderVersionSelect) return;
+
+    if (type === 'fabric') {
+        loaderVersionSelect.innerHTML = '<option>Buscando Fabric...</option>';
+        try {
+            const res = await fetch(`https://meta.fabricmc.net/v2/versions/loader/${mcVersion}`);
+            const loaders = await res.json();
+            if (loaders.length > 0) {
+                loaderVersionSelect.innerHTML = loaders.map(l => `<option value="${l.loader.version}">${l.loader.version}</option>`).join('');
+            } else {
+                loaderVersionSelect.innerHTML = '<option value="">No disponible</option>';
+            }
+        } catch(e) { 
+            loaderVersionSelect.innerHTML = '<option value="0.15.11">0.15.11 (Default)</option>'; 
+        }
+    } else {
+        loaderVersionSelect.innerHTML = '<option value="latest">N/A (Vanilla)</option>';
+    }
 }
 
 async function createInstance() {
@@ -48,48 +65,39 @@ async function createInstance() {
     if(!name) { alert("Escribe un nombre."); return; }
     
     const mcVersion = versionSelect.value;
-    const type = typeSelect.value; // "vanilla", "fabric"
+    const type = typeSelect.value;
+    const loaderVersion = loaderVersionSelect ? loaderVersionSelect.value : null;
     const btn = document.getElementById('btn-create-instance');
     
     btn.innerText = "Creando...";
     btn.disabled = true;
 
     try {
-        const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now();
+        const id = "custom-" + name.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now();
         
         let newProfile = {
             title: name,
             mc_version: mcVersion,
-            loader_name: type === 'vanilla' ? 'Vanilla' : type === 'fabric' ? 'Fabric' : 'Forge',
+            loader_name: type.charAt(0).toUpperCase() + type.slice(1),
             image: 'assets/logo.png',
         };
 
-        // Regla básica de Java (1.17+ usa java 17 o 21, menores usan java 8)
         const minorVersion = parseInt(mcVersion.split('.')[1]);
         if (type !== 'vanilla') {
             newProfile.java_version = minorVersion >= 20 ? 21 : minorVersion >= 17 ? 17 : 8;
         }
 
-        // Lógica de Fabric usando la API Oficial
-        if (type === 'fabric') {
-            const loaderRes = await fetch(`https://meta.fabricmc.net/v2/versions/loader/${mcVersion}`);
-            const loaders = await loaderRes.json();
-            if (loaders.length === 0) throw new Error("No hay Fabric para esta versión");
-            
-            const loaderVersion = loaders[0].loader.version; // El más reciente
-            
+        if (type === 'fabric' && loaderVersion) {
             newProfile.version_id = `fabric-loader-${loaderVersion}-${mcVersion}`;
             newProfile.loader_url = `https://meta.fabricmc.net/v2/versions/loader/${mcVersion}/${loaderVersion}/1.0.1/server/jar`; 
         } else {
             newProfile.version_id = mcVersion;
         }
 
-        // GUARDAMOS EN DISCO GRACIAS A NUESTRA NUEVA FUNCIÓN
         await saveProfileToDisk(id, newProfile);
-        
         updateStatus(`¡Instancia ${name} creada exitosamente!`);
         modal.classList.add('hidden');
-        drawProfiles(); 
+        await drawProfiles(); 
         
     } catch (e) {
         alert("Error creando instancia: " + e.message);

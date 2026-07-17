@@ -24,21 +24,15 @@ async function checkForUpdates() {
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         updateStatus("Cargando instancias locales...");
-
-        // Inicialización de módulos
         initInstanceDetail();
         initCreator();
         await initSettingsPanel();
-
-        // Cargar perfiles locales de Rust (profiles.json)
         await fetchProfiles();
         drawProfiles();
 
         const viewGrid = document.getElementById('view-grid');
         const viewExplore = document.getElementById('view-explore');
         const viewInstance = document.getElementById('view-instance');
-
-        // EVENTO: CLICK EN MIS INSTANCIAS
         document.getElementById('btn-my-instances').addEventListener('click', (e) => {
             document.querySelectorAll('.game-list li').forEach(li => li.classList.remove('active'));
             e.currentTarget.classList.add('active');
@@ -46,12 +40,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             viewExplore.classList.add('hidden');
             viewInstance.classList.add('hidden');
             viewGrid.classList.remove('hidden');
-            
-            // Refrescar la lista local por si se instaló algo nuevo
             drawProfiles();
         });
-
-        // EVENTO: CLICK EN EXPLORAR (BASE DE DATOS)
         document.getElementById('btn-explore-modpacks').addEventListener('click', (e) => {
             document.querySelectorAll('.game-list li').forEach(li => li.classList.remove('active'));
             e.currentTarget.classList.add('active');
@@ -59,16 +49,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             viewGrid.classList.add('hidden');
             viewInstance.classList.add('hidden');
             viewExplore.classList.remove('hidden');
-            
-            // CARGAR LA BASE DE DATOS AQUÍ
             loadExploreModpacks();
         });
-
-        // Restaurar Sesión
         const savedSession = await loadSession();
         if (savedSession) restoreSession(savedSession);
-
-        // Listeners Globales
         document.addEventListener('lumineria:play-profile', (e) => iniciarJuego(e.detail.id, e.detail.force));
         document.addEventListener('lumineria:open-folder', (e) => abrirCarpetaInstancia(e.detail.id));
         document.addEventListener('lumineria:open-instance-detail', (e) => openInstanceDetail(e.detail.id));
@@ -76,8 +60,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             openInstanceDetail(e.detail.id);
             document.querySelector('.tab-btn[data-tab="tab-mods"]')?.click();
         });
-
-        // Login
         document.getElementById('login-btn')?.addEventListener('click', openLoginModal);
         document.getElementById('login-modal-close')?.addEventListener('click', closeLoginModal);
         document.getElementById('login-offline-btn')?.addEventListener('click', () => {

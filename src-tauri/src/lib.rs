@@ -104,6 +104,8 @@ pub fn run() {
             // --- Profiles (NUEVO: Lógica de base de datos) ---
             instance::profiles::load_profiles,
             instance::profiles::save_profile,
+            instance::profiles::delete_profile,
+            instance::profiles::get_installed_vanilla_versions,
             instance::profiles::get_minecraft_default_path,
             instance::profiles::fetch_official_modpacks
         ])

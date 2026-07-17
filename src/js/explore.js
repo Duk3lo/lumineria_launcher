@@ -9,8 +9,6 @@ export async function loadExploreModpacks() {
 
     try {
         const baseDir = await getBaseDirectory();
-        
-        // Llamamos a Rust para que lea launcher_config.json y busque el servidor Python
         const databaseModpacks = await invoke('fetch_official_modpacks', { baseDir });
 
         if (!databaseModpacks || Object.keys(databaseModpacks).length === 0) {
@@ -22,7 +20,6 @@ export async function loadExploreModpacks() {
 
         Object.keys(databaseModpacks).forEach(db_id => {
             const pack = databaseModpacks[db_id];
-            // Si el ID ya existe en nuestros perfiles locales, está instalado
             const isInstalled = PROFILES[db_id] !== undefined;
 
             const card = document.createElement('div');
@@ -48,13 +45,9 @@ export async function loadExploreModpacks() {
                 installBtn.addEventListener('click', async () => {
                     installBtn.innerText = "Instalando...";
                     installBtn.disabled = true;
-
-                    // Guardar en el disco real a través de Rust
                     await saveProfileToDisk(db_id, pack);
                     
                     updateStatus(`¡${pack.title} añadido correctamente!`);
-                    
-                    // Volver a la pestaña de Mis Instancias
                     document.getElementById('btn-my-instances').click();
                 });
             }
