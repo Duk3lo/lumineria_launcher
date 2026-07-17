@@ -1,0 +1,69 @@
+import { PROFILES, saveProfileToDisk, getBaseDirectory } from './state.js';
+import { drawProfiles, updateStatus } from './ui.js';
+
+const { invoke } = window.__TAURI__.core;
+
+export async function loadExploreModpacks() {
+    const exploreGrid = document.getElementById('explore-grid');
+    exploreGrid.innerHTML = '<p class="mods-empty-state">Conectando al servidor oficial...</p>';
+
+    try {
+        const baseDir = await getBaseDirectory();
+        
+        // Llamamos a Rust para que lea launcher_config.json y busque el servidor Python
+        const databaseModpacks = await invoke('fetch_official_modpacks', { baseDir });
+
+        if (!databaseModpacks || Object.keys(databaseModpacks).length === 0) {
+            exploreGrid.innerHTML = '<p class="mods-empty-state">No hay modpacks disponibles actualmente.</p>';
+            return;
+        }
+
+        exploreGrid.innerHTML = '';
+
+        Object.keys(databaseModpacks).forEach(db_id => {
+            const pack = databaseModpacks[db_id];
+            // Si el ID ya existe en nuestros perfiles locales, está instalado
+            const isInstalled = PROFILES[db_id] !== undefined;
+
+            const card = document.createElement('div');
+            card.className = 'profile-card';
+            card.innerHTML = `
+                <div class="profile-card-bg" style="background-image:url('assets/logo.png')"></div>
+                <div class="profile-content">
+                    <h3 class="profile-title">${pack.title}</h3>
+                    <div class="profile-badges">
+                        <span class="badge loader">${pack.loader_name}</span>
+                        <span class="badge version">${pack.mc_version}</span>
+                    </div>
+                    <div class="profile-actions" style="margin-top: auto; padding-top: 15px;">
+                        <button class="primary-btn btn-install-modpack" style="width: 100%; border-radius: 8px; padding: 10px;" ${isInstalled ? 'disabled' : ''}>
+                            ${isInstalled ? '✓ Instalado' : '⬇ Instalar Cliente'}
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            const installBtn = card.querySelector('.btn-install-modpack');
+            if (!isInstalled) {
+                installBtn.addEventListener('click', async () => {
+                    installBtn.innerText = "Instalando...";
+                    installBtn.disabled = true;
+
+                    // Guardar en el disco real a través de Rust
+                    await saveProfileToDisk(db_id, pack);
+                    
+                    updateStatus(`¡${pack.title} añadido correctamente!`);
+                    
+                    // Volver a la pestaña de Mis Instancias
+                    document.getElementById('btn-my-instances').click();
+                });
+            }
+
+            exploreGrid.appendChild(card);
+        });
+
+    } catch (error) {
+        console.error("Error en explore.js:", error);
+        exploreGrid.innerHTML = `<p class="mods-empty-state" style="color: var(--danger)">Error: No se pudo conectar al servidor.</p>`;
+    }
+}

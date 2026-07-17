@@ -104,7 +104,8 @@ pub fn run() {
             // --- Profiles (NUEVO: Lógica de base de datos) ---
             instance::profiles::load_profiles,
             instance::profiles::save_profile,
-            instance::profiles::get_minecraft_default_path
+            instance::profiles::get_minecraft_default_path,
+            instance::profiles::fetch_official_modpacks
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

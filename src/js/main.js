@@ -3,16 +3,16 @@ import { drawProfiles, updateStatus, initSettingsPanel } from './ui.js';
 import { iniciarJuego, abrirCarpetaInstancia } from './launcher.js';
 import { openLoginModal, closeLoginModal, handleOfflineLogin, handleMicrosoftLogin, restoreSession } from './auth.js';
 import { initInstanceDetail, openInstanceDetail } from './instanceDetail.js';
-import { initCreator } from './creator.js'; // <--- ESTO FALTABA Y ROMPÍA TODO
+import { initCreator } from './creator.js';
+import { loadExploreModpacks } from './explore.js';
 
 async function checkForUpdates() {
     try {
         const { check } = window.__TAURI__.updater;
         const { relaunch } = window.__TAURI__.process;
-
         const update = await check();
         if (update) {
-            updateStatus(`Actualización ${update.version} disponible, instalando...`);
+            updateStatus(`Actualización ${update.version} disponible...`);
             await update.downloadAndInstall();
             await relaunch();
         }
@@ -25,56 +25,59 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         updateStatus("Cargando instancias locales...");
 
+        // Inicialización de módulos
+        initInstanceDetail();
+        initCreator();
+        await initSettingsPanel();
+
+        // Cargar perfiles locales de Rust (profiles.json)
         await fetchProfiles();
         drawProfiles();
-        await initSettingsPanel();
-        initInstanceDetail();
-        initCreator(); // Ahora sí funcionará porque ya lo importamos
 
         const viewGrid = document.getElementById('view-grid');
         const viewExplore = document.getElementById('view-explore');
         const viewInstance = document.getElementById('view-instance');
 
+        // EVENTO: CLICK EN MIS INSTANCIAS
         document.getElementById('btn-my-instances').addEventListener('click', (e) => {
             document.querySelectorAll('.game-list li').forEach(li => li.classList.remove('active'));
-            e.target.classList.add('active');
+            e.currentTarget.classList.add('active');
+            
             viewExplore.classList.add('hidden');
             viewInstance.classList.add('hidden');
             viewGrid.classList.remove('hidden');
+            
+            // Refrescar la lista local por si se instaló algo nuevo
+            drawProfiles();
         });
 
+        // EVENTO: CLICK EN EXPLORAR (BASE DE DATOS)
         document.getElementById('btn-explore-modpacks').addEventListener('click', (e) => {
             document.querySelectorAll('.game-list li').forEach(li => li.classList.remove('active'));
-            e.target.classList.add('active');
+            e.currentTarget.classList.add('active');
+            
             viewGrid.classList.add('hidden');
             viewInstance.classList.add('hidden');
             viewExplore.classList.remove('hidden');
+            
+            // CARGAR LA BASE DE DATOS AQUÍ
+            loadExploreModpacks();
         });
 
+        // Restaurar Sesión
         const savedSession = await loadSession();
-        if (savedSession) {
-            restoreSession(savedSession);
-        } else {
-            updateStatus("Esperando acción...");
-        }
+        if (savedSession) restoreSession(savedSession);
 
-        document.addEventListener('lumineria:play-profile', (event) => {
-            iniciarJuego(event.detail.id, event.detail.force === true);
-        });
-        document.addEventListener('lumineria:open-folder', (event) => {
-            abrirCarpetaInstancia(event.detail.id);
+        // Listeners Globales
+        document.addEventListener('lumineria:play-profile', (e) => iniciarJuego(e.detail.id, e.detail.force));
+        document.addEventListener('lumineria:open-folder', (e) => abrirCarpetaInstancia(e.detail.id));
+        document.addEventListener('lumineria:open-instance-detail', (e) => openInstanceDetail(e.detail.id));
+        document.addEventListener('lumineria:open-mods', (e) => {
+            openInstanceDetail(e.detail.id);
+            document.querySelector('.tab-btn[data-tab="tab-mods"]')?.click();
         });
 
-        document.addEventListener('lumineria:open-mods', (event) => {
-            openInstanceDetail(event.detail.id);
-            const tabModsBtn = document.querySelector('.tab-btn[data-tab="tab-mods"]');
-            if (tabModsBtn) tabModsBtn.click();
-        });
-
-        document.addEventListener('lumineria:open-instance-detail', (event) => {
-            openInstanceDetail(event.detail.id);
-        });
-
+        // Login
         document.getElementById('login-btn')?.addEventListener('click', openLoginModal);
         document.getElementById('login-modal-close')?.addEventListener('click', closeLoginModal);
         document.getElementById('login-offline-btn')?.addEventListener('click', () => {
@@ -83,13 +86,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         document.getElementById('login-microsoft-btn')?.addEventListener('click', handleMicrosoftLogin);
 
-        document.getElementById('btn-minecraft').addEventListener('click', () => console.log('Minecraft seleccionado'));
-        document.getElementById('btn-hytale').addEventListener('click', () => alert('Hytale llegará pronto!'));
-
         checkForUpdates();
 
     } catch (error) {
-        updateStatus("Error al cargar profiles.json");
-        console.error(error);
+        updateStatus("Error al cargar el launcher");
+        console.error("Error en main.js:", error);
     }
 });
