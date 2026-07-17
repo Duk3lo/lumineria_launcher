@@ -69,7 +69,8 @@
                     <button class="tab-btn" data-tab="tab-resourcepacks">Paquetes de Recursos</button>
                     <button class="tab-btn" data-tab="tab-settings">Ajustes</button>
                     <button class="tab-btn" id="btn-open-folder-detail">Carpeta ↗</button>
-                    <button id="btn-instance-delete" class="secondary-btn" style="color: var(--danger); margin-left: auto;">Eliminar</button>
+                    <button id="btn-instance-delete" class="secondary-btn"
+                        style="color: var(--danger); margin-left: auto;">Eliminar</button>
                 </div>
 
                 <div class="instance-tab-content">
@@ -134,11 +135,24 @@
 
             <label>Cargador
                 <select id="new-instance-type">
-                    <option value="vanilla">Vanilla (Oficial)</option>
+                    <option value="vanilla">Vanilla</option>
                     <option value="fabric">Fabric</option>
-                    <option value="forge">Forge (Beta)</option>
+                    <option value="forge">Forge</option>
+                    <option value="neoforge">NeoForge</option>
                 </select>
             </label>
+
+            <div class="form-group" id="new-instance-loader-version-group">
+                <label>Versión del Cargador</label>
+                <div class="loader-picker" id="loader-picker">
+                    <button type="button" class="loader-picker-trigger" id="loader-picker-trigger">
+                        <span class="loader-picker-trigger-text" id="loader-picker-trigger-text">Selecciona un cargador
+                            primero</span>
+                        <span class="loader-picker-chevron">▾</span>
+                    </button>
+                    <div class="loader-picker-menu hidden" id="loader-picker-menu"></div>
+                </div>
+            </div>
 
             <button id="btn-create-instance" class="primary-btn" style="margin-top: 20px;">Crear e Instalar</button>
         </div>

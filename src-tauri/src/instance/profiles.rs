@@ -124,3 +124,32 @@ pub async fn delete_profile(base_dir: String, profile_id: String) -> Result<(), 
     }
     Ok(())
 }
+
+
+#[tauri::command]
+pub async fn fetch_neoforge_versions() -> Result<Vec<String>, String> {
+    let url = "https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge";
+    let response = reqwest::get(url).await.map_err(|e| format!("Error de conexión: {}", e))?;
+    if !response.status().is_success() {
+        return Err(format!("NeoForge respondió con error: {}", response.status()));
+    }
+    let data: Value = response.json().await.map_err(|e| format!("JSON inválido: {}", e))?;
+    let versions = data["versions"]
+        .as_array()
+        .ok_or("Formato inesperado en la respuesta de NeoForge")?
+        .iter()
+        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+        .collect();
+    Ok(versions)
+}
+
+#[tauri::command]
+pub async fn fetch_forge_versions() -> Result<Value, String> {
+    let url = "https://files.minecraftforge.net/net/minecraftforge/forge/maven-metadata.json";
+    let response = reqwest::get(url).await.map_err(|e| format!("Error de conexión: {}", e))?;
+    if !response.status().is_success() {
+        return Err(format!("Forge respondió con error: {}", response.status()));
+    }
+    let data: Value = response.json().await.map_err(|e| format!("JSON inválido: {}", e))?;
+    Ok(data)
+}

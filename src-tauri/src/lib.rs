@@ -5,10 +5,10 @@ mod instance;
 mod java;
 mod settings;
 
-use tauri::Manager;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use std::collections::HashMap;
+use std::sync::Arc;
+use tauri::Manager;
+use tokio::sync::Mutex;
 
 pub struct AppState {
     pub running_processes: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>>,
@@ -46,7 +46,7 @@ async fn kill_instance(
 ) -> Result<(), String> {
     let mut processes = state.running_processes.lock().await;
     if let Some(tx) = processes.remove(&profile_id) {
-        let _ = tx.send(()); 
+        let _ = tx.send(());
     }
     Ok(())
 }
@@ -65,26 +65,21 @@ pub fn run() {
             ensure_dir,
             open_folder,
             kill_instance,
-            
             // --- Java ---
             java::verify_and_get_java,
             java::download_java_command,
-            
             // --- Settings ---
             settings::load_settings,
             settings::save_settings,
             settings::get_system_ram_mb,
-            
             // --- Downloader ---
             downloader::profile::ensure_launcher_profile,
             downloader::file::download_generic_file,
             downloader::jar::execute_jar,
             downloader::jar::check_version_installed,
-            
             // --- Games / Minecraft ---
             games::minecraft::launcher::launch_minecraft,
             games::minecraft::vanilla::ensure_vanilla_version,
-            
             // --- Auth ---
             auth::microsoft::ms_login_start,
             auth::microsoft::ms_login_poll,
@@ -92,7 +87,6 @@ pub fn run() {
             auth::session::save_session,
             auth::session::load_session,
             auth::session::clear_session,
-            
             // --- Instance ---
             instance::status::get_instance_status,
             instance::mods::list_mods,
@@ -100,14 +94,15 @@ pub fn run() {
             instance::mods::list_resource_packs,
             instance::mods::toggle_resource_pack,
             instance::reset::reset_instance_libraries,
-            
             // --- Profiles (NUEVO: Lógica de base de datos) ---
             instance::profiles::load_profiles,
             instance::profiles::save_profile,
             instance::profiles::delete_profile,
             instance::profiles::get_installed_vanilla_versions,
             instance::profiles::get_minecraft_default_path,
-            instance::profiles::fetch_official_modpacks
+            instance::profiles::fetch_official_modpacks,
+            instance::profiles::fetch_neoforge_versions,
+            instance::profiles::fetch_forge_versions
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
