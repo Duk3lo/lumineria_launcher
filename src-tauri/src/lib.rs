@@ -4,6 +4,8 @@ mod games;
 mod instance;
 mod java;
 mod settings;
+mod discord;
+mod ipc;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -12,6 +14,8 @@ use tokio::sync::Mutex;
 
 pub struct AppState {
     pub running_processes: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>>,
+    pub discord: discord::DiscordHandle,
+    pub ipc_port: u16,
 }
 
 #[cfg(debug_assertions)]
@@ -65,8 +69,28 @@ async fn kill_instance(
 pub fn run() {
     tauri::Builder::default()
         .plugin(prevent_default())
-        .manage(AppState {
-            running_processes: Arc::new(Mutex::new(HashMap::new())),
+        .setup(|app| {
+            let discord_handle = discord::spawn_discord_worker();
+            let discord_for_ipc = discord_handle.clone();
+
+            let ipc_port = tauri::async_runtime::block_on(async move {
+                ipc::start_ipc_bridge(discord_for_ipc).await
+            }).expect("no se pudo iniciar el puente IPC local");
+            discord_handle.send(discord::DiscordCommand::UpdateActivity {
+                details: "En el launcher".into(),
+                state: "Explorando modpacks".into(),
+                large_image: Some("launcher_icon".into()),
+                large_text: Some("Lumineria Launcher".into()),
+                small_image: None,
+                small_text: None,
+                start_timestamp: Some(discord::now_ts()),
+            });
+            app.manage(AppState {
+                running_processes: Arc::new(Mutex::new(HashMap::new())),
+                discord: discord_handle,
+                ipc_port,
+            });
+            Ok(())
         })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())

@@ -98,6 +98,7 @@ pub async fn launch_minecraft(
 
     let mut command = Command::new(&options.java_path);
     command.current_dir(&instance_dir);
+    command.env("LUMINERIA_IPC_PORT", state.ipc_port.to_string());
     command.arg(format!("-Xms{}M", options.ram_min_mb));
     command.arg(format!("-Xmx{}M", options.ram_max_mb));
 
