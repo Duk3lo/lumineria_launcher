@@ -3,6 +3,35 @@ import { drawProfiles, updateStatus } from './ui.js';
 
 const { invoke } = window.__TAURI__.core;
 
+export function initExplore() {
+    document.getElementById('btn-refresh-explore')?.addEventListener('click', () => {
+        loadExploreModpacks();
+    });
+
+    const modal = document.getElementById('server-url-modal');
+    const input = document.getElementById('server-url-input');
+
+    document.getElementById('btn-change-server')?.addEventListener('click', async () => {
+        const baseDir = await getBaseDirectory();
+        const config = await invoke('load_launcher_config', { baseDir });
+        input.value = config.api_url || '';
+        modal.classList.remove('hidden');
+    });
+
+    document.getElementById('server-url-close')?.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+
+    document.getElementById('server-url-save-btn')?.addEventListener('click', async () => {
+        const url = input.value.trim();
+        if (!url) return alert('Ingresá una URL válida.');
+        const baseDir = await getBaseDirectory();
+        await invoke('save_launcher_config', { baseDir, apiUrl: url });
+        modal.classList.add('hidden');
+        loadExploreModpacks();
+    });
+}
+
 export async function loadExploreModpacks() {
     const exploreGrid = document.getElementById('explore-grid');
     exploreGrid.innerHTML = '<p class="mods-empty-state">Conectando al servidor oficial...</p>';
@@ -21,11 +50,12 @@ export async function loadExploreModpacks() {
         Object.keys(databaseModpacks).forEach(db_id => {
             const pack = databaseModpacks[db_id];
             const isInstalled = PROFILES[db_id] !== undefined;
+            const imageUrl = pack.image || 'assets/logo.png';
 
             const card = document.createElement('div');
             card.className = 'profile-card';
             card.innerHTML = `
-                <div class="profile-card-bg" style="background-image:url('assets/logo.png')"></div>
+                <div class="profile-card-bg" style="background-image:url('${imageUrl}')"></div>
                 <div class="profile-content">
                     <h3 class="profile-title">${pack.title}</h3>
                     <div class="profile-badges">
@@ -46,7 +76,6 @@ export async function loadExploreModpacks() {
                     installBtn.innerText = "Instalando...";
                     installBtn.disabled = true;
                     await saveProfileToDisk(db_id, pack);
-                    
                     updateStatus(`¡${pack.title} añadido correctamente!`);
                     document.getElementById('btn-my-instances').click();
                 });

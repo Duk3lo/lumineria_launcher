@@ -9,9 +9,37 @@ import {
     deleteProfileFromDisk
 } from './state.js';
 
+import { showAlert, showConfirm } from './dialogs.js';
+
 const { invoke } = window.__TAURI__.core;
 const statusText = document.getElementById('status-text');
 const profilesGrid = document.getElementById('profiles-grid');
+
+const { listen } = window.__TAURI__.event;
+const runningInstances = new Set();
+
+export function isInstanceRunning(id) {
+    return runningInstances.has(id);
+}
+
+export function setCardRunningState(id, isRunning) {
+    if (isRunning) runningInstances.add(id);
+    else runningInstances.delete(id);
+
+    const playBtn = document.getElementById(`play-btn-${id}`);
+    if (!playBtn) return;
+    playBtn.innerText = isRunning ? 'Detener' : 'Jugar';
+    playBtn.classList.toggle('btn-kill', isRunning);
+    playBtn.dataset.action = isRunning ? 'kill' : 'play';
+}
+
+export function initInstanceEventListeners() {
+    listen('game-started', (event) => setCardRunningState(event.payload.id, true));
+    listen('game-stopped', (event) => {
+        setCardRunningState(event.payload.id, false);
+        refreshCardStatus(event.payload.id);
+    });
+}
 
 export function updateStatus(text) {
     if (statusText) statusText.innerText = text;
@@ -79,15 +107,21 @@ function buildProfileCard(id, profile, isVanillaLocal) {
                 <div class="play-button-group">
                     <button class="play-btn-card" id="play-btn-${id}" data-action="play">Jugar</button>
                     ${!isVanillaLocal ? `
-                    <button class="play-dropdown-toggle" id="dropdown-toggle-${id}" data-action="toggle-menu">⋮</button>
-                    <div class="card-dropdown-menu hidden" id="dropdown-menu-${id}">
-                        <button data-action="open-folder">📂 Abrir Carpeta</button>
-                        <button data-action="view-mods">🧩 Ver Mods</button>
-                        <button data-action="reinstall">🔄 Reinstalar</button>
-                        <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;">
-                        <button data-action="delete" style="color: #f87171;">🗑 Eliminar Instancia</button>
-                    </div>
-                    ` : ''}
+<button class="play-dropdown-toggle" id="dropdown-toggle-${id}" data-action="toggle-menu">⋮</button>
+<div class="card-dropdown-menu hidden" id="dropdown-menu-${id}">
+    <button data-action="open-folder">📂 Abrir Carpeta</button>
+    <button data-action="view-mods">🧩 Ver Mods</button>
+    <button data-action="reinstall">🔄 Reinstalar</button>
+    <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;">
+    <button data-action="delete" style="color: #f87171;">🗑 Eliminar Instancia</button>
+</div>
+` : `
+
+<button class="play-dropdown-toggle" id="dropdown-toggle-${id}" data-action="toggle-menu">⋮</button>
+<div class="card-dropdown-menu hidden" id="dropdown-menu-${id}">
+    <button data-action="delete-local" style="color: #f87171;">🗑 Eliminar de .minecraft</button>
+</div>
+`}
                 </div>
             </div>
         </div>
@@ -104,19 +138,28 @@ function buildProfileCard(id, profile, isVanillaLocal) {
         if (action === 'play') {
             event.stopPropagation();
             closeAllDropdowns();
-            document.dispatchEvent(new CustomEvent('lumineria:play-profile', { detail: { id, isLocal: isVanillaLocal } }));
+            document.dispatchEvent(new CustomEvent('lumineria:play-profile', {
+                detail: { id, isLocal: isVanillaLocal, localProfile: isVanillaLocal ? profile : null }
+            }));
             return;
         }
-        if (action === 'delete') {
+        if (action === 'kill') {
             event.stopPropagation();
-            const confirmado = confirm(`¿Eliminar "${profile.title}"? Se borrarán todos los archivos (mods, mundos, etc) de esta instancia.`);
+            invoke('kill_instance', { profileId: id });
+            return;
+        }
+        if (action === 'delete-local') {
+            event.stopPropagation();
+            const confirmado = await showConfirm(
+                `¿Eliminar "${profile.title}" de tu carpeta .minecraft real? Esto borra la versión instalada directamente de tu instalación de Minecraft, no solo de este launcher.`
+            );
             if (confirmado) {
                 try {
-                    await deleteProfileFromDisk(id);
-                    updateStatus(`Instancia "${profile.title}" eliminada.`);
+                    await invoke('delete_vanilla_version', { versionId: id });
+                    updateStatus(`Versión "${profile.title}" eliminada de .minecraft.`);
                     drawProfiles();
                 } catch (e) {
-                    alert("Error al eliminar: " + e);
+                    await showAlert("Error al eliminar: " + e);
                 }
             }
             return;
@@ -152,10 +195,8 @@ export async function refreshCardStatus(id) {
         const dot = document.getElementById(`status-dot-${id}`);
         const playBtn = document.getElementById(`play-btn-${id}`);
 
-        if (dot) {
-            dot.classList.toggle('installed', status.installed);
-        }
-        if (playBtn && !playBtn.innerText.includes('Detener')) {
+        if (dot) dot.classList.toggle('installed', status.installed);
+        if (playBtn && !isInstanceRunning(id)) {
             playBtn.innerText = status.installed ? 'Jugar' : 'Instalar';
         }
     } catch (e) { }
@@ -195,8 +236,8 @@ export async function initSettingsPanel() {
     saveBtn?.addEventListener('click', async () => {
         const min = parseInt(ramMinInput.value);
         const max = parseInt(ramMaxInput.value);
-        
-        if(min > max) return alert("La RAM mínima no puede ser mayor a la máxima.");
+
+        if (min > max) return showAlert("La RAM mínima no puede ser mayor a la máxima.");
 
         await saveSettings({
             ramMinMb: min,

@@ -5,8 +5,9 @@ import { setInstanceRunning } from './instanceDetail.js';
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
-export async function iniciarJuego(profileId, force = false) {
-    if (!profileId || !PROFILES[profileId]) return;
+export async function iniciarJuego(profileId, force = false, isLocal = false, localProfileData = null) {
+    const profile = isLocal ? localProfileData : PROFILES[profileId];
+    if (!profileId || !profile) return;
 
     if (!AUTH_SESSION) {
         updateStatus("Iniciá sesión antes de jugar");
@@ -17,9 +18,10 @@ export async function iniciarJuego(profileId, force = false) {
     setCardPlayState(profileId, true);
     updateCardProgress(profileId, 5, 'Preparando...');
 
-    const profile = PROFILES[profileId];
     const baseDir = await getBaseDirectory();
-    const instanceDir = await getInstanceDir(profileId);
+    const instanceDir = isLocal
+        ? await invoke('get_minecraft_default_path')
+        : await getInstanceDir(profileId);
     const installersDir = `${baseDir}/installers`;
     const targetVersionId = profile.version_id || profile.mc_version;
 
@@ -98,13 +100,13 @@ export async function iniciarJuego(profileId, force = false) {
 
         const unlisten = await listen('assets-progress', (event) => {
             const { done, total } = event.payload;
-            const pct = 85 + Math.floor((done / total) * 14); 
+            const pct = 85 + Math.floor((done / total) * 14);
             updateCardProgress(profileId, pct, `Descargando assets (${done}/${total})...`);
         });
 
         try {
             setInstanceRunning(profileId, true);
-            
+
             await invoke('launch_minecraft', {
                 options: {
                     profileId: profileId,

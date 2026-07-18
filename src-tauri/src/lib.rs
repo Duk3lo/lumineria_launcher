@@ -14,6 +14,16 @@ pub struct AppState {
     pub running_processes: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>>,
 }
 
+#[cfg(debug_assertions)]
+fn prevent_default() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri_plugin_prevent_default::Builder::new().build()
+}
+
+#[cfg(not(debug_assertions))]
+fn prevent_default() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri_plugin_prevent_default::Builder::new().build()
+}
+
 #[tauri::command]
 fn get_default_path(app: tauri::AppHandle) -> String {
     app.path()
@@ -54,6 +64,7 @@ async fn kill_instance(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(prevent_default())
         .manage(AppState {
             running_processes: Arc::new(Mutex::new(HashMap::new())),
         })
@@ -95,9 +106,12 @@ pub fn run() {
             instance::mods::toggle_resource_pack,
             instance::reset::reset_instance_libraries,
             // --- Profiles (NUEVO: Lógica de base de datos) ---
+            instance::profiles::load_launcher_config,
+            instance::profiles::save_launcher_config,
             instance::profiles::load_profiles,
             instance::profiles::save_profile,
             instance::profiles::delete_profile,
+            instance::profiles::delete_vanilla_version,
             instance::profiles::get_installed_vanilla_versions,
             instance::profiles::get_minecraft_default_path,
             instance::profiles::fetch_official_modpacks,

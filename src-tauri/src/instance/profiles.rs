@@ -58,7 +58,7 @@ pub async fn fetch_official_modpacks(base_dir: String) -> Result<Value, String> 
     let config_path = PathBuf::from(&base_dir).join("launcher_config.json");
     if !config_path.exists() {
         let default_config = serde_json::json!({
-            "api_url": "http://localhost:8080/modpacks.json"
+            "api_url": "http://localhost:8000/modpacks.json"
         });
         tokio::fs::write(&config_path, serde_json::to_string_pretty(&default_config).unwrap())
             .await
@@ -66,7 +66,7 @@ pub async fn fetch_official_modpacks(base_dir: String) -> Result<Value, String> 
     }
     let config_data = tokio::fs::read_to_string(&config_path).await.map_err(|e| e.to_string())?;
     let config: Value = serde_json::from_str(&config_data).map_err(|e| e.to_string())?;
-    let url = config["api_url"].as_str().unwrap_or("http://localhost:8080/modpacks.json");
+    let url = config["api_url"].as_str().unwrap_or("http://localhost:8000/modpacks.json");
     let response = reqwest::get(url).await.map_err(|e| format!("Error de conexión: {}", e))?;
     
     if !response.status().is_success() {
@@ -152,4 +152,37 @@ pub async fn fetch_forge_versions() -> Result<Value, String> {
     }
     let data: Value = response.json().await.map_err(|e| format!("JSON inválido: {}", e))?;
     Ok(data)
+}
+
+#[tauri::command]
+pub async fn load_launcher_config(base_dir: String) -> Result<Value, String> {
+    let config_path = PathBuf::from(&base_dir).join("launcher_config.json");
+    if !config_path.exists() {
+        let default_config = serde_json::json!({ "api_url": "http://localhost:8000/modpacks.json" });
+        tokio::fs::write(&config_path, serde_json::to_string_pretty(&default_config).unwrap())
+            .await
+            .map_err(|e| e.to_string())?;
+        return Ok(default_config);
+    }
+    let data = tokio::fs::read_to_string(&config_path).await.map_err(|e| e.to_string())?;
+    serde_json::from_str(&data).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn save_launcher_config(base_dir: String, api_url: String) -> Result<(), String> {
+    let config_path = PathBuf::from(&base_dir).join("launcher_config.json");
+    let config = serde_json::json!({ "api_url": api_url });
+    tokio::fs::write(&config_path, serde_json::to_string_pretty(&config).unwrap())
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_vanilla_version(version_id: String) -> Result<(), String> {
+    let path = PathBuf::from(get_minecraft_default_path()).join("versions").join(&version_id);
+    if path.exists() {
+        tokio::fs::remove_dir_all(&path).await.map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }

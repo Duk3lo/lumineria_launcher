@@ -1,10 +1,13 @@
 import { fetchProfiles, loadSession } from './state.js';
-import { drawProfiles, updateStatus, initSettingsPanel } from './ui.js';
+import { drawProfiles, updateStatus, initSettingsPanel, initInstanceEventListeners } from './ui.js';
 import { iniciarJuego, abrirCarpetaInstancia } from './launcher.js';
 import { openLoginModal, closeLoginModal, handleOfflineLogin, handleMicrosoftLogin, restoreSession } from './auth.js';
 import { initInstanceDetail, openInstanceDetail } from './instanceDetail.js';
 import { initCreator } from './creator.js';
-import { loadExploreModpacks } from './explore.js';
+import { loadExploreModpacks, initExplore } from './explore.js';
+import { initDialogs } from './dialogs.js';
+
+
 
 async function checkForUpdates() {
     try {
@@ -26,9 +29,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateStatus("Cargando instancias locales...");
         initInstanceDetail();
         initCreator();
+        initExplore();
+        initInstanceEventListeners();
         await initSettingsPanel();
         await fetchProfiles();
         drawProfiles();
+        initDialogs();
 
         const viewGrid = document.getElementById('view-grid');
         const viewExplore = document.getElementById('view-explore');
@@ -36,7 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('btn-my-instances').addEventListener('click', (e) => {
             document.querySelectorAll('.game-list li').forEach(li => li.classList.remove('active'));
             e.currentTarget.classList.add('active');
-            
+
             viewExplore.classList.add('hidden');
             viewInstance.classList.add('hidden');
             viewGrid.classList.remove('hidden');
@@ -45,7 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('btn-explore-modpacks').addEventListener('click', (e) => {
             document.querySelectorAll('.game-list li').forEach(li => li.classList.remove('active'));
             e.currentTarget.classList.add('active');
-            
+
             viewGrid.classList.add('hidden');
             viewInstance.classList.add('hidden');
             viewExplore.classList.remove('hidden');
@@ -53,7 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         const savedSession = await loadSession();
         if (savedSession) restoreSession(savedSession);
-        document.addEventListener('lumineria:play-profile', (e) => iniciarJuego(e.detail.id, e.detail.force));
+        document.addEventListener('lumineria:play-profile', (e) => iniciarJuego(e.detail.id, e.detail.force, e.detail.isLocal, e.detail.localProfile));
         document.addEventListener('lumineria:open-folder', (e) => abrirCarpetaInstancia(e.detail.id));
         document.addEventListener('lumineria:open-instance-detail', (e) => openInstanceDetail(e.detail.id));
         document.addEventListener('lumineria:open-mods', (e) => {

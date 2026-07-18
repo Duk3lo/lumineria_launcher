@@ -46,6 +46,10 @@
                 <div class="hero">
                     <h1>Explorar Modpacks</h1>
                     <p>Descarga clientes oficiales y comunitarios desde nuestra base de datos.</p>
+                    <div class="explore-toolbar" style="display:flex; gap:10px; margin-bottom:15px;">
+                        <button id="btn-refresh-explore" class="secondary-btn">🔄 Actualizar</button>
+                        <button id="btn-change-server" class="secondary-btn">⚙ Cambiar servidor</button>
+                    </div>
                     <div id="explore-grid" class="profiles-grid">
                         <p class="mods-empty-state">Conectando a la base de datos...</p>
                     </div>
@@ -167,6 +171,28 @@
             <hr>
             <button id="login-microsoft-btn" class="primary-btn">Iniciar con Microsoft</button>
             <p id="login-status"></p>
+        </div>
+    </div>
+
+    <div id="server-url-modal" class="modal hidden">
+        <div class="modal-box">
+            <button id="server-url-close" class="modal-close">×</button>
+            <h2>Cambiar servidor de modpacks</h2>
+            <label>URL de modpacks.json
+                <input id="server-url-input" placeholder="http://localhost:8080/modpacks.json">
+            </label>
+            <button id="server-url-save-btn" class="primary-btn" style="margin-top:10px;">Guardar y recargar</button>
+        </div>
+    </div>
+
+    <div id="app-dialog-overlay" class="modal hidden">
+        <div class="modal-box">
+            <h2 id="app-dialog-title">Aviso</h2>
+            <p id="app-dialog-message" style="color: var(--text-dim); font-size: 0.9rem;"></p>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button id="app-dialog-cancel" class="secondary-btn" style="flex:1;">Cancelar</button>
+                <button id="app-dialog-ok" class="primary-btn" style="flex:1;">Aceptar</button>
+            </div>
         </div>
     </div>
 

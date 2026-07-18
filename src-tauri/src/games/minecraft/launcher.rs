@@ -42,7 +42,7 @@ pub async fn launch_minecraft(
         .await
         .map_err(|e| e.to_string())?;
 
-    let classpath = build_classpath(&instance_dir, &version_json, &options.version_id)?;
+    let classpath = build_classpath(&instance_dir, &version_json)?;
     let main_class = version_json["mainClass"]
         .as_str()
         .ok_or("mainClass no encontrado")?
@@ -125,6 +125,8 @@ pub async fn launch_minecraft(
         .lock()
         .await
         .insert(profile_id.clone(), tx);
+
+    let _ = window.emit("game-started", serde_json::json!({ "id": profile_id }));
 
     if let Some(stdout) = child.stdout.take() {
         let window_out = window.clone();
