@@ -7,7 +7,7 @@ use std::path::PathBuf;
 #[tauri::command]
 pub async fn execute_jar(window: tauri::Window, java_path: String, jar_path: String, args: Vec<String>, work_dir: String) -> Result<String, String> {
     let mut command = Command::new(&java_path);
-    command.current_dir(&work_dir).arg("-jar").arg(&jar_path);
+    command.current_dir(&work_dir).arg("-jar").arg(&jar_path).kill_on_drop(true);
     for arg in &args { command.arg(arg); }
     
     command.stdout(Stdio::piped()).stderr(Stdio::piped());
