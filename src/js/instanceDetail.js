@@ -1,14 +1,16 @@
-import { PROFILES } from './state.js';
+import { PROFILES, deleteProfileFromDisk } from './state.js';
 import { iniciarJuego, abrirCarpetaInstancia } from './launcher.js';
 import { renderModsForInstance } from './mods.js';
 import { renderResourcePacksForInstance } from './resourcePacks.js';
-import { deleteProfileFromDisk } from './state.js';
 import { drawProfiles } from './ui.js';
+import { showAlert, showConfirm } from './dialogs.js';
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
 export let currentDetailProfileId = null;
+let currentDetailIsLocal = false;
+let currentDetailLocalProfile = null;
 
 export const INSTANCE_STATE = {};
 
@@ -17,14 +19,21 @@ const viewInstance = document.getElementById('view-instance');
 const btnBack = document.getElementById('btn-back-grid');
 const title = document.getElementById('instance-detail-title');
 const btnPlayKill = document.getElementById('btn-instance-play');
+const btnDelete = document.getElementById('btn-instance-delete');
 const statusText = document.getElementById('instance-status-text');
 const logsOutput = document.getElementById('instance-logs-output');
+
+function getCurrentProfile() {
+    return currentDetailIsLocal ? currentDetailLocalProfile : PROFILES[currentDetailProfileId];
+}
 
 export function initInstanceDetail() {
     btnBack.addEventListener('click', () => {
         viewInstance.classList.add('hidden');
         viewGrid.classList.remove('hidden');
         currentDetailProfileId = null;
+        currentDetailIsLocal = false;
+        currentDetailLocalProfile = null;
     });
 
     btnPlayKill.addEventListener('click', async () => {
@@ -33,7 +42,7 @@ export function initInstanceDetail() {
         if (state && state.isRunning) {
             await invoke('kill_instance', { profileId: currentDetailProfileId });
         } else {
-            iniciarJuego(currentDetailProfileId);
+            iniciarJuego(currentDetailProfileId, false, currentDetailIsLocal, currentDetailLocalProfile);
         }
     });
 
@@ -41,13 +50,30 @@ export function initInstanceDetail() {
         abrirCarpetaInstancia(currentDetailProfileId);
     });
 
-    document.getElementById('btn-instance-delete')?.addEventListener('click', async () => {
+    btnDelete?.addEventListener('click', async () => {
         if (!currentDetailProfileId) return;
         const id = currentDetailProfileId;
-        if (confirm("¿Eliminar esta instancia permanentemente?")) {
-            await deleteProfileFromDisk(id);
+        const isLocal = currentDetailIsLocal;
+        const profile = getCurrentProfile();
+        const profileName = profile?.title || 'esta instancia';
+
+        const confirmado = await showConfirm(
+            isLocal
+                ? `¿Eliminar "${profileName}" de tu carpeta .minecraft real? Esto borra la versión instalada directamente de tu instalación de Minecraft, no solo de este launcher.`
+                : `¿Eliminar "${profileName}" permanentemente? Se borrará la carpeta de la instancia y no se podrá deshacer.`
+        );
+        if (!confirmado) return;
+
+        try {
+            if (isLocal) {
+                await invoke('delete_vanilla_version', { versionId: id });
+            } else {
+                await deleteProfileFromDisk(id);
+            }
             document.getElementById('btn-back-grid').click();
             drawProfiles();
+        } catch (e) {
+            await showAlert("Error al eliminar: " + e);
         }
     });
 
@@ -93,15 +119,17 @@ export function initInstanceDetail() {
     });
 }
 
-export function openInstanceDetail(profileId) {
+export function openInstanceDetail(profileId, isLocal = false, localProfile = null) {
     currentDetailProfileId = profileId;
-    const profile = PROFILES[profileId];
+    currentDetailIsLocal = isLocal;
+    currentDetailLocalProfile = localProfile;
+    const profile = getCurrentProfile();
 
     if (!INSTANCE_STATE[profileId]) {
         INSTANCE_STATE[profileId] = { isRunning: false, logs: [] };
     }
 
-    title.innerText = profile.title;
+    title.innerText = profile?.title || profileId;
     logsOutput.textContent = INSTANCE_STATE[profileId].logs.join('\n') + (INSTANCE_STATE[profileId].logs.length > 0 ? '\n' : '');
     logsOutput.scrollTop = logsOutput.scrollHeight;
 

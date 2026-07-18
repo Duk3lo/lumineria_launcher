@@ -110,6 +110,8 @@ export async function iniciarJuego(profileId, force = false, isLocal = false, lo
             await invoke('launch_minecraft', {
                 options: {
                     profileId: profileId,
+                    title: profile.title,
+                    loaderName: profile.loader_name,
                     instanceDir,
                     versionId: targetVersionId,
                     javaPath,

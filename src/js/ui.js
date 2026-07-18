@@ -148,15 +148,16 @@ function buildProfileCard(id, profile, isVanillaLocal) {
             invoke('kill_instance', { profileId: id });
             return;
         }
-        if (action === 'delete-local') {
+        if (action === 'delete') {
             event.stopPropagation();
+            closeAllDropdowns();
             const confirmado = await showConfirm(
-                `¿Eliminar "${profile.title}" de tu carpeta .minecraft real? Esto borra la versión instalada directamente de tu instalación de Minecraft, no solo de este launcher.`
+                `¿Eliminar "${profile.title}" permanentemente? Se borrará la carpeta de la instancia y no se podrá deshacer.`
             );
             if (confirmado) {
                 try {
-                    await invoke('delete_vanilla_version', { versionId: id });
-                    updateStatus(`Versión "${profile.title}" eliminada de .minecraft.`);
+                    await deleteProfileFromDisk(id);
+                    updateStatus(`Instancia "${profile.title}" eliminada.`);
                     drawProfiles();
                 } catch (e) {
                     await showAlert("Error al eliminar: " + e);
@@ -165,7 +166,9 @@ function buildProfileCard(id, profile, isVanillaLocal) {
             return;
         }
         closeAllDropdowns();
-        document.dispatchEvent(new CustomEvent('lumineria:open-instance-detail', { detail: { id, isLocal: isVanillaLocal } }));
+        document.dispatchEvent(new CustomEvent('lumineria:open-instance-detail', {
+            detail: { id, isLocal: isVanillaLocal, localProfile: isVanillaLocal ? profile : null }
+        }));
     });
 
     return card;

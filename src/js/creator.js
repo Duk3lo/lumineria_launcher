@@ -1,5 +1,6 @@
 import { PROFILES, saveProfileToDisk } from './state.js';
 import { updateStatus, drawProfiles } from './ui.js';
+import { showAlert } from './dialogs.js';
 
 const { invoke } = window.__TAURI__.core;
 
@@ -242,17 +243,16 @@ async function populateLoaderVersions() {
     }
 }
 
-// ---- Crear instancia ----
 
 async function createInstance() {
     const name = nameInput.value.trim();
-    if (!name) { alert("Escribe un nombre."); return; }
+    if (!name) { await showAlert("Escribe un nombre."); return; }
 
     const mcVersion = versionSelect.value;
     const type = typeSelect.value;
 
     if (type !== 'vanilla' && !selectedLoaderVersion) {
-        alert("No hay una versión de cargador disponible para esta combinación.");
+        await showAlert("No hay una versión de cargador disponible para esta combinación.");
         return;
     }
 
@@ -300,7 +300,7 @@ async function createInstance() {
         await drawProfiles();
 
     } catch (e) {
-        alert("Error creando instancia: " + e.message);
+        await showAlert("Error creando instancia: " + e.message);
     } finally {
         btn.innerText = "Crear Instancia";
         btn.disabled = false;

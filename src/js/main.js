@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (savedSession) restoreSession(savedSession);
         document.addEventListener('lumineria:play-profile', (e) => iniciarJuego(e.detail.id, e.detail.force, e.detail.isLocal, e.detail.localProfile));
         document.addEventListener('lumineria:open-folder', (e) => abrirCarpetaInstancia(e.detail.id));
-        document.addEventListener('lumineria:open-instance-detail', (e) => openInstanceDetail(e.detail.id));
+        document.addEventListener('lumineria:open-instance-detail', (e) => openInstanceDetail(e.detail.id, e.detail.isLocal, e.detail.localProfile));
         document.addEventListener('lumineria:open-mods', (e) => {
             openInstanceDetail(e.detail.id);
             document.querySelector('.tab-btn[data-tab="tab-mods"]')?.click();

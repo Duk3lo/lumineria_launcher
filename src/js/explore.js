@@ -2,6 +2,7 @@ import { PROFILES, saveProfileToDisk, getBaseDirectory } from './state.js';
 import { drawProfiles, updateStatus } from './ui.js';
 
 const { invoke } = window.__TAURI__.core;
+import { showAlert } from './dialogs.js';
 
 export function initExplore() {
     document.getElementById('btn-refresh-explore')?.addEventListener('click', () => {
@@ -24,7 +25,7 @@ export function initExplore() {
 
     document.getElementById('server-url-save-btn')?.addEventListener('click', async () => {
         const url = input.value.trim();
-        if (!url) return alert('Ingresá una URL válida.');
+        if (!url) { await showAlert('Ingresá una URL válida.'); return; }
         const baseDir = await getBaseDirectory();
         await invoke('save_launcher_config', { baseDir, apiUrl: url });
         modal.classList.add('hidden');
