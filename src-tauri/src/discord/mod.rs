@@ -15,6 +15,7 @@ pub enum DiscordCommand {
         small_image: Option<String>,
         small_text: Option<String>,
         start_timestamp: Option<i64>,
+        party_size: Option<(i32, i32)>,
     },
     Clear,
     Shutdown,
@@ -73,7 +74,7 @@ fn apply(client: &mut Option<DiscordIpcClient>, cmd: DiscordCommand) {
     let result = match cmd {
         DiscordCommand::Clear => c.clear_activity(),
         DiscordCommand::Shutdown => Ok(()),
-        DiscordCommand::UpdateActivity { details, state, large_image, large_text, small_image, small_text, start_timestamp } => {
+        DiscordCommand::UpdateActivity { details, state, large_image, large_text, small_image, small_text, start_timestamp, party_size } => {
             let mut assets = activity::Assets::new();
             if let Some(ref img) = large_image { assets = assets.large_image(img); }
             if let Some(ref t) = large_text { assets = assets.large_text(t); }
@@ -88,6 +89,10 @@ fn apply(client: &mut Option<DiscordIpcClient>, cmd: DiscordCommand) {
             if let Some(ts) = start_timestamp {
                 act = act.timestamps(activity::Timestamps::new().start(ts));
             }
+            if let Some((current, max)) = party_size {
+                act = act.party(activity::Party::new().id("game_party").size([current, max]));
+            }
+
             c.set_activity(act)
         }
     };
@@ -95,7 +100,6 @@ fn apply(client: &mut Option<DiscordIpcClient>, cmd: DiscordCommand) {
         *client = None;
     }
 }
-
 pub fn now_ts() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64
 }

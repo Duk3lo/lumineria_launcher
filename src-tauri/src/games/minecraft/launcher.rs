@@ -12,11 +12,14 @@ use crate::games::minecraft::arguments::extract_argument_list;
 use crate::games::minecraft::assets::ensure_assets;
 use crate::games::minecraft::classpath::{build_classpath, ensure_libraries};
 use crate::games::minecraft::version::load_merged_version;
+use crate::presence::{register_instance, unregister_instance, RunningInstance};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LaunchOptions {
     pub profile_id: String,
+    pub title: String,
+    pub loader_name: String,
     pub instance_dir: String,
     pub version_id: String,
     pub java_path: String,
@@ -99,6 +102,7 @@ pub async fn launch_minecraft(
     let mut command = Command::new(&options.java_path);
     command.current_dir(&instance_dir);
     command.env("LUMINERIA_IPC_PORT", state.ipc_port.to_string());
+    command.env("LUMINERIA_PROFILE_ID", &options.profile_id);
     command.arg(format!("-Xms{}M", options.ram_min_mb));
     command.arg(format!("-Xmx{}M", options.ram_max_mb));
 
@@ -127,6 +131,19 @@ pub async fn launch_minecraft(
         .await
         .insert(profile_id.clone(), tx);
 
+    register_instance(
+        &state.running_instances,
+        &state.discord,
+        RunningInstance {
+            profile_id: profile_id.clone(),
+            title: options.title.clone(),
+            loader_name: options.loader_name.clone(),
+            launched_at: crate::discord::now_ts(),
+            ..Default::default()
+        },
+    )
+    .await;
+
     let _ = window.emit("game-started", serde_json::json!({ "id": profile_id }));
 
     if let Some(stdout) = child.stdout.take() {
@@ -154,6 +171,8 @@ pub async fn launch_minecraft(
     let window_exit = window.clone();
     let profile_id_exit = profile_id.clone();
     let state_ref = state.running_processes.clone();
+    let running_instances_ref = state.running_instances.clone();
+    let discord_ref = state.discord.clone();
 
     tokio::spawn(async move {
         tokio::select! {
@@ -170,8 +189,10 @@ pub async fn launch_minecraft(
         }
 
         state_ref.lock().await.remove(&profile_id_exit);
+        unregister_instance(&running_instances_ref, &discord_ref, &profile_id_exit).await; // <- nuevo
         let _ = window_exit.emit("game-stopped", serde_json::json!({ "id": profile_id_exit }));
     });
 
     Ok(())
 }
+

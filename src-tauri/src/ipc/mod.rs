@@ -1,16 +1,29 @@
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use serde::Deserialize;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use crate::discord::{DiscordHandle, DiscordCommand, now_ts};
+use crate::presence::{update_instance_status, RunningInstance};
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ModEvent {
     ServerJoin { host: String, port: u16 },
     ServerLeave,
+    StatusUpdate {
+        profile_id: String,
+        players_online: i32,
+        max_players: i32,
+        server_name: Option<String>,
+        server_icon: Option<String>,
+    },
 }
 
-pub async fn start_ipc_bridge(discord: DiscordHandle) -> std::io::Result<u16> {
+pub async fn start_ipc_bridge(
+    discord: DiscordHandle,
+    running_instances: Arc<Mutex<Vec<RunningInstance>>>,
+) -> std::io::Result<u16> {
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let port = listener.local_addr()?.port();
 
@@ -18,7 +31,8 @@ pub async fn start_ipc_bridge(discord: DiscordHandle) -> std::io::Result<u16> {
         loop {
             if let Ok((socket, _)) = listener.accept().await {
                 let discord = discord.clone();
-                tokio::spawn(handle_connection(socket, discord));
+                let running_instances = running_instances.clone();
+                tokio::spawn(handle_connection(socket, discord, running_instances));
             }
         }
     });
@@ -26,7 +40,11 @@ pub async fn start_ipc_bridge(discord: DiscordHandle) -> std::io::Result<u16> {
     Ok(port)
 }
 
-async fn handle_connection(socket: TcpStream, discord: DiscordHandle) {
+async fn handle_connection(
+    socket: TcpStream,
+    discord: DiscordHandle,
+    running_instances: Arc<Mutex<Vec<RunningInstance>>>,
+) {
     let mut reader = BufReader::new(socket);
     let mut line = String::new();
     loop {
@@ -35,7 +53,7 @@ async fn handle_connection(socket: TcpStream, discord: DiscordHandle) {
             Ok(0) => break,
             Ok(_) => {
                 if let Ok(event) = serde_json::from_str::<ModEvent>(line.trim()) {
-                    handle_event(event, &discord).await;
+                    handle_event(event, &discord, &running_instances).await;
                 }
             }
             Err(_) => break,
@@ -43,8 +61,23 @@ async fn handle_connection(socket: TcpStream, discord: DiscordHandle) {
     }
 }
 
-async fn handle_event(event: ModEvent, discord: &DiscordHandle) {
+async fn handle_event(
+    event: ModEvent,
+    discord: &DiscordHandle,
+    running_instances: &Arc<Mutex<Vec<RunningInstance>>>,
+) {
     match event {
+        ModEvent::StatusUpdate { profile_id, players_online, max_players, server_name, server_icon } => {
+            update_instance_status(
+                running_instances,
+                discord,
+                &profile_id,
+                players_online,
+                max_players,
+                server_name,
+                server_icon,
+            ).await;
+        }
         ModEvent::ServerJoin { host, port } => {
             let (state_text, large_text) = match ping_server(&host, port).await {
                 Some((motd, _favicon)) => (motd, format!("{}:{}", host, port)),
@@ -59,6 +92,7 @@ async fn handle_event(event: ModEvent, discord: &DiscordHandle) {
                 small_image: Some("launcher_icon".into()),
                 small_text: Some("Lumineria Launcher".into()),
                 start_timestamp: Some(now_ts()),
+                party_size: None,
             });
         }
         ModEvent::ServerLeave => {
@@ -70,6 +104,7 @@ async fn handle_event(event: ModEvent, discord: &DiscordHandle) {
                 small_image: None,
                 small_text: None,
                 start_timestamp: Some(now_ts()),
+                party_size: None,
             });
         }
     }

@@ -76,15 +76,21 @@ pub fn build_classpath(
         }
     }
 
-    if let Some(vanilla_id) = version_json["_vanillaId"].as_str() {
-        let client_jar = instance_dir
-            .join("versions")
-            .join(vanilla_id)
-            .join(format!("{}.jar", vanilla_id));
-        if client_jar.exists() {
-            jars.push(client_jar.to_string_lossy().to_string());
+    let main_class = version_json["mainClass"].as_str().unwrap_or("");
+    let is_modular_loader = main_class.starts_with("cpw.mods.");
+
+    if !is_modular_loader {
+        if let Some(vanilla_id) = version_json["_vanillaId"].as_str() {
+            let client_jar = instance_dir
+                .join("versions")
+                .join(vanilla_id)
+                .join(format!("{}.jar", vanilla_id));
+            if client_jar.exists() {
+                jars.push(client_jar.to_string_lossy().to_string());
+            }
         }
     }
+
     Ok(jars.join(separator))
 }
 

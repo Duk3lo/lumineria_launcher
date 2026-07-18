@@ -1,11 +1,12 @@
 mod auth;
+mod discord;
 mod downloader;
 mod games;
 mod instance;
-mod java;
-mod settings;
-mod discord;
 mod ipc;
+mod java;
+mod presence;
+mod settings;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -14,6 +15,7 @@ use tokio::sync::Mutex;
 
 pub struct AppState {
     pub running_processes: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>>,
+    pub running_instances: Arc<Mutex<Vec<presence::RunningInstance>>>,
     pub discord: discord::DiscordHandle,
     pub ipc_port: u16,
 }
@@ -73,9 +75,16 @@ pub fn run() {
             let discord_handle = discord::spawn_discord_worker();
             let discord_for_ipc = discord_handle.clone();
 
+            // se crea ACÁ, antes del puente IPC, para que ipc.rs y AppState
+            // compartan el mismo Vec de instancias corriendo
+            let running_instances = Arc::new(Mutex::new(Vec::new()));
+            let running_instances_for_ipc = running_instances.clone();
+
             let ipc_port = tauri::async_runtime::block_on(async move {
-                ipc::start_ipc_bridge(discord_for_ipc).await
-            }).expect("no se pudo iniciar el puente IPC local");
+                ipc::start_ipc_bridge(discord_for_ipc, running_instances_for_ipc).await
+            })
+            .expect("no se pudo iniciar el puente IPC local");
+
             discord_handle.send(discord::DiscordCommand::UpdateActivity {
                 details: "En el launcher".into(),
                 state: "Explorando modpacks".into(),
@@ -84,9 +93,12 @@ pub fn run() {
                 small_image: None,
                 small_text: None,
                 start_timestamp: Some(discord::now_ts()),
+                party_size: None,
             });
+
             app.manage(AppState {
                 running_processes: Arc::new(Mutex::new(HashMap::new())),
+                running_instances,
                 discord: discord_handle,
                 ipc_port,
             });
