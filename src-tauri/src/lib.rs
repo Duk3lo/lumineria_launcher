@@ -7,6 +7,7 @@ mod ipc;
 mod java;
 mod presence;
 mod settings;
+mod net;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -129,6 +130,7 @@ pub fn run() {
             // --- Games / Minecraft ---
             games::minecraft::launcher::launch_minecraft,
             games::minecraft::vanilla::ensure_vanilla_version,
+            games::minecraft::fabric::ensure_fabric_profile,
             games::minecraft::launcher::cancel_preparation,
             // --- Auth ---
             auth::microsoft::ms_login_start,

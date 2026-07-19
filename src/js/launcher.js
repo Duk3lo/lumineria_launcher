@@ -113,7 +113,21 @@ export async function iniciarJuego(profileId, force = false, isLocal = false, lo
             console.warn("No se pudo comprobar la versión", e);
         }
 
-        if (profile.loader_url) {
+        if (profile.loader_name === 'Fabric') {
+            if (!isInstalled || force) {
+                updateStatus(`Preparando Fabric...`);
+                updateCardProgress(profileId, 40, 'Preparando Fabric...');
+
+                await invoke('ensure_fabric_profile', {
+                    instanceDir,
+                    mcVersion: profile.mc_version,
+                    loaderVersion: profile.loader_version
+                });
+            } else {
+                updateStatus(`✔ Fabric ya estaba instalado.`);
+                updateCardProgress(profileId, 40, `Verificado Fabric`);
+            }
+        } else if (profile.loader_url) {
             if (!isInstalled || force) {
                 updateStatus(`Preparando ${profile.loader_name}...`);
                 updateCardProgress(profileId, 40, `Instalando ${profile.loader_name}...`);
@@ -134,7 +148,12 @@ export async function iniciarJuego(profileId, force = false, isLocal = false, lo
 
         if (profile.packwiz_url) {
             updateCardProgress(profileId, 60, 'Sincronizando mods...');
-            await sincronizarModpack(profileId, { silent: true });
+            try {
+                await sincronizarModpack(profileId, { silent: true });
+            } catch (e) {
+                console.warn('No se pudo sincronizar mods, se continúa con los ya instalados:', e);
+                updateStatus('Sin conexión al servidor de mods — iniciando con lo que ya está instalado.');
+            }
         }
 
         updateStatus("Descargando assets y lanzando el juego...");
@@ -180,6 +199,7 @@ export async function iniciarJuego(profileId, force = false, isLocal = false, lo
         updateCardProgress(profileId, 0, '');
         console.error(e);
         setInstanceRunning(profileId, false);
+        refreshCardStatus(profileId);
     }
 }
 

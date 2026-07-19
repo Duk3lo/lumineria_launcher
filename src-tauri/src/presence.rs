@@ -49,7 +49,6 @@ pub async fn unregister_instance(
     refresh_discord_presence(running_instances, discord).await;
 }
 
-
 pub async fn update_instance_status(
     running_instances: &Arc<Mutex<Vec<RunningInstance>>>,
     discord: &discord::DiscordHandle,
@@ -82,6 +81,7 @@ async fn refresh_discord_presence(
 
     match active {
         Some(instance) => {
+            // Jugando: ícono pequeño del loader (o del servidor si aplica)
             let (loader_img, loader_text) = loader_presence_assets(&instance.loader_name);
             let party_size = match (instance.players_online, instance.max_players) {
                 (Some(online), Some(max)) if max > 0 => Some((online, max)),
@@ -111,8 +111,8 @@ async fn refresh_discord_presence(
                 state: "Preparando su próxima aventura".into(),
                 large_image: Some("launcher_icon".into()),
                 large_text: Some("Lumineria Launcher".into()),
-                small_image: Some("vanilla".into()), 
-                small_text: Some("Lumineria".into()),
+                small_image: None,
+                small_text: None,
                 start_timestamp: Some(discord::now_ts()),
                 party_size: None,
             });

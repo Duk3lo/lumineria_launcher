@@ -27,6 +27,10 @@
                     <span class="account-avatar">👤</span>
                     <span id="account-label">Iniciar sesión</span>
                 </button>
+                <button id="console-toggle-btn" class="account-btn">
+                    <span class="account-avatar">🖥</span>
+                    <span>Consola</span>
+                </button>
             </div>
         </aside>
 
@@ -195,6 +199,18 @@
                 <button id="app-dialog-ok" class="primary-btn" style="flex:1;">Aceptar</button>
             </div>
         </div>
+    </div>
+
+    <div id="console-panel" class="console-panel hidden">
+        <div class="console-header">
+            <span>Consola del Launcher</span>
+            <div class="console-header-actions">
+                <button id="console-clear-btn" class="secondary-btn"
+                    style="padding:4px 10px;font-size:0.8rem;">Limpiar</button>
+                <button id="console-close-btn" class="modal-close">×</button>
+            </div>
+        </div>
+        <pre id="console-output" class="console-output"></pre>
     </div>
 
     <script type="module" src="js/main.js"></script>

@@ -6,6 +6,8 @@ use std::sync::Arc;
 use tauri::Emitter;
 use tokio::time::{sleep, Duration};
 
+use crate::net;
+
 pub async fn ensure_assets(
     window: &tauri::Window,
     instance_dir: &Path,
@@ -22,10 +24,7 @@ pub async fn ensure_assets(
         .await
         .map_err(|e| e.to_string())?;
     let index_path = indexes_dir.join(format!("{}.json", asset_id));
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(60))
-        .build()
-        .map_err(|e| format!("Error creando cliente HTTP: {}", e))?;
+
     let index_json: Value = if index_path.exists() {
         let content = tokio::fs::read_to_string(&index_path)
             .await
@@ -34,7 +33,11 @@ pub async fn ensure_assets(
     } else {
         let url =
             asset_url.ok_or("No se encontró la URL del assetIndex en el JSON de la versión")?;
-        let resp = client.get(url).send().await.map_err(|e| e.to_string())?;
+        let resp = net::download_client()
+            .get(url)
+            .send()
+            .await
+            .map_err(|e| format!("Sin conexión al descargar el índice de assets: {}", e))?;
         let raw = resp.text().await.map_err(|e| e.to_string())?;
         tokio::fs::write(&index_path, &raw)
             .await
@@ -67,7 +70,7 @@ pub async fn ensure_assets(
 
     futures_util::stream::iter(pending)
         .map(|hash| {
-            let client = client.clone();
+            let client = net::download_client().clone();
             let objects_dir = objects_dir_shared.clone();
             let done = done.clone();
             let window = window.clone();

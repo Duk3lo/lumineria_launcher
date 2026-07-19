@@ -273,11 +273,11 @@ async function createInstance() {
         const minorVersion = parseInt(mcVersion.split('.')[1]);
         if (type !== 'vanilla') {
             newProfile.java_version = minorVersion >= 20 ? 21 : minorVersion >= 17 ? 17 : 8;
+            newProfile.loader_version = selectedLoaderVersion;
         }
 
         if (type === 'fabric') {
             newProfile.version_id = `fabric-loader-${selectedLoaderVersion}-${mcVersion}`;
-            newProfile.loader_url = `https://meta.fabricmc.net/v2/versions/loader/${mcVersion}/${selectedLoaderVersion}/1.0.1/server/jar`;
 
         } else if (type === 'neoforge') {
             newProfile.version_id = `neoforge-${selectedLoaderVersion}`;

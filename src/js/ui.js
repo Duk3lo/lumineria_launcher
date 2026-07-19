@@ -216,7 +216,13 @@ export function updateCardProgress(id, percent, label) {
     const labelEl = document.getElementById(`card-progress-label-${id}`);
     if (!container || !fill) return;
 
-    if (percent > 0 && percent < 100) container.classList.remove('hidden');
+    if (percent <= 0) {
+        container.classList.add('hidden');
+        fill.style.width = '0%';
+        return;
+    }
+
+    container.classList.remove('hidden');
     fill.style.width = `${percent}%`;
     if (labelEl && label) labelEl.innerText = label;
 

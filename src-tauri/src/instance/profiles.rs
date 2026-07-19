@@ -2,6 +2,8 @@ use serde_json::Value;
 use std::path::PathBuf;
 use std::fs;
 
+use crate::net::{self, DEFAULT_MODPACKS_API_URL};
+
 #[tauri::command]
 pub fn get_minecraft_default_path() -> String {
     if cfg!(target_os = "windows") {
@@ -57,25 +59,27 @@ pub async fn save_profile(base_dir: String, profile_id: String, profile_data: Va
 pub async fn fetch_official_modpacks(base_dir: String) -> Result<Value, String> {
     let config_path = PathBuf::from(&base_dir).join("launcher_config.json");
     if !config_path.exists() {
-        let default_config = serde_json::json!({
-            "api_url": "http://localhost:8000/modpacks.json"
-        });
+        let default_config = serde_json::json!({ "api_url": DEFAULT_MODPACKS_API_URL });
         tokio::fs::write(&config_path, serde_json::to_string_pretty(&default_config).unwrap())
             .await
             .map_err(|e| e.to_string())?;
     }
     let config_data = tokio::fs::read_to_string(&config_path).await.map_err(|e| e.to_string())?;
     let config: Value = serde_json::from_str(&config_data).map_err(|e| e.to_string())?;
-    let url = config["api_url"].as_str().unwrap_or("http://localhost:8000/modpacks.json");
-    let response = reqwest::get(url).await.map_err(|e| format!("Error de conexión: {}", e))?;
-    
+    let url = config["api_url"].as_str().unwrap_or(DEFAULT_MODPACKS_API_URL);
+
+    let response = net::http_client()
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("Sin conexión: {}", e))?;
+
     if !response.status().is_success() {
         return Err(format!("El servidor respondió con error: {}", response.status()));
     }
     let data: Value = response.json().await.map_err(|e| format!("JSON inválido: {}", e))?;
     Ok(data)
 }
-
 
 #[tauri::command]
 pub async fn get_installed_vanilla_versions() -> Result<Value, String> {
@@ -87,14 +91,14 @@ pub async fn get_installed_vanilla_versions() -> Result<Value, String> {
             for entry in entries.flatten() {
                 let id = entry.file_name().to_string_lossy().to_string();
                 let json_path = entry.path().join(format!("{}.json", id));
-                
+
                 if json_path.exists() {
                     installed[&id] = serde_json::json!({
                         "title": format!("Vanilla {}", id),
                         "mc_version": id,
                         "version_id": id,
                         "loader_name": "Vanilla",
-                        "is_local": true 
+                        "is_local": true
                     });
                 }
             }
@@ -109,11 +113,11 @@ pub async fn delete_profile(base_dir: String, profile_id: String) -> Result<(), 
     if path.exists() {
         let data = tokio::fs::read_to_string(&path).await.map_err(|e| e.to_string())?;
         let mut profiles: serde_json::Value = serde_json::from_str(&data).map_err(|e| e.to_string())?;
-        
+
         if let Some(obj) = profiles.as_object_mut() {
             obj.remove(&profile_id);
         }
-        
+
         tokio::fs::write(&path, serde_json::to_string_pretty(&profiles).unwrap())
             .await
             .map_err(|e| e.to_string())?;
@@ -125,11 +129,14 @@ pub async fn delete_profile(base_dir: String, profile_id: String) -> Result<(), 
     Ok(())
 }
 
-
 #[tauri::command]
 pub async fn fetch_neoforge_versions() -> Result<Vec<String>, String> {
     let url = "https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge";
-    let response = reqwest::get(url).await.map_err(|e| format!("Error de conexión: {}", e))?;
+    let response = net::http_client()
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("Sin conexión: {}", e))?;
     if !response.status().is_success() {
         return Err(format!("NeoForge respondió con error: {}", response.status()));
     }
@@ -146,7 +153,11 @@ pub async fn fetch_neoforge_versions() -> Result<Vec<String>, String> {
 #[tauri::command]
 pub async fn fetch_forge_versions() -> Result<Value, String> {
     let url = "https://files.minecraftforge.net/net/minecraftforge/forge/maven-metadata.json";
-    let response = reqwest::get(url).await.map_err(|e| format!("Error de conexión: {}", e))?;
+    let response = net::http_client()
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("Sin conexión: {}", e))?;
     if !response.status().is_success() {
         return Err(format!("Forge respondió con error: {}", response.status()));
     }
@@ -158,7 +169,7 @@ pub async fn fetch_forge_versions() -> Result<Value, String> {
 pub async fn load_launcher_config(base_dir: String) -> Result<Value, String> {
     let config_path = PathBuf::from(&base_dir).join("launcher_config.json");
     if !config_path.exists() {
-        let default_config = serde_json::json!({ "api_url": "http://localhost:8000/modpacks.json" });
+        let default_config = serde_json::json!({ "api_url": DEFAULT_MODPACKS_API_URL });
         tokio::fs::write(&config_path, serde_json::to_string_pretty(&default_config).unwrap())
             .await
             .map_err(|e| e.to_string())?;

@@ -3,7 +3,9 @@ use futures_util::StreamExt;
 use std::path::{Path, PathBuf};
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-use std::process::Command as StdCommand; 
+use std::process::Command as StdCommand;
+
+use crate::net;
 
 #[tauri::command]
 pub async fn verify_and_get_java(version: u8, base_dir: String) -> Result<String, String> {
@@ -65,6 +67,7 @@ fn find_executable(base_dir: &Path) -> Option<PathBuf> {
     }
     None
 }
+
 fn adoptium_os() -> &'static str {
     if cfg!(target_os = "windows") {
         "windows"
@@ -93,7 +96,7 @@ async fn download_jre(version: u8, base_dir: &str) -> Result<()> {
         tokio::fs::remove_dir_all(&dest_dir).await.ok();
     }
 
-    let response = reqwest::get(&url).await?;
+    let response = net::download_client().get(&url).send().await?;
     if !response.status().is_success() {
         anyhow::bail!("Adoptium respondió {} para {}", response.status(), url);
     }

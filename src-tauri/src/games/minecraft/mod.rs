@@ -4,3 +4,4 @@ pub mod classpath;
 pub mod launcher;
 pub mod vanilla;
 pub mod version;
+pub mod fabric;

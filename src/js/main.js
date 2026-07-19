@@ -6,6 +6,7 @@ import { initInstanceDetail, openInstanceDetail } from './instanceDetail.js';
 import { initCreator } from './creator.js';
 import { loadExploreModpacks, initExplore } from './explore.js';
 import { initDialogs } from './dialogs.js';
+import { initConsole } from './console.js';
 
 
 
@@ -36,6 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await syncInstalledProfilesFromDatabase();
         drawProfiles();
         initDialogs();
+        initConsole();
 
         const viewGrid = document.getElementById('view-grid');
         const viewExplore = document.getElementById('view-explore');

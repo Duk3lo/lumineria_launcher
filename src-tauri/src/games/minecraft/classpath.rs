@@ -1,6 +1,8 @@
 use serde_json::Value;
 use std::path::Path;
 
+use crate::net;
+
 pub fn os_matches(rule_os: &Value) -> bool {
     match rule_os["name"].as_str() {
         Some("windows") => cfg!(target_os = "windows"),
@@ -100,10 +102,7 @@ pub async fn ensure_libraries(
         Some(l) => l,
         None => return Ok(()),
     };
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(60))
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = net::download_client();
 
     for lib in libs {
         if cancel.load(std::sync::atomic::Ordering::SeqCst) {
@@ -149,7 +148,7 @@ pub async fn ensure_libraries(
             .get(&dl_url)
             .send()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| format!("Sin conexión al descargar {}: {}", rel_path, e))?;
         if resp.status().is_success() {
             let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
             tokio::fs::write(&dest, &bytes)

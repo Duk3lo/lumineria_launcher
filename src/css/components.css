@@ -283,20 +283,38 @@ button.play-dropdown-toggle:hover { background: rgba(219, 39, 119, 0.6); }
     color: var(--text); padding: 8px 14px; border-radius: 8px; cursor: pointer;
 }
 .console-panel {
-    position: fixed; bottom: 0; right: 0; width: 600px; max-width: 100vw;
-    height: 320px; background: #05050a; border: 1px solid var(--border-soft);
-    border-radius: 10px 0 0 0; z-index: 60; display: flex; flex-direction: column;
-    box-shadow: 0 -10px 30px rgba(0,0,0,0.6);
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 480px;
+    height: 320px;
+    background: rgba(10, 10, 15, 0.97);
+    border: 1px solid rgba(192, 132, 252, 0.25);
+    border-radius: 8px 0 0 0;
+    display: flex;
+    flex-direction: column;
+    z-index: 999;
 }
 .console-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 12px; border-bottom: 1px solid var(--border-soft); font-size: 0.8rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    color: var(--primary-glow);
+    font-size: 0.85rem;
 }
-.console-header button { background: transparent; border: none; color: var(--text-dim); cursor: pointer; }
-#console-output {
-    flex: 1; overflow-y: auto; margin: 0; padding: 10px 12px;
-    font-family: 'Consolas', monospace; font-size: 0.75rem; line-height: 1.4;
-    white-space: pre-wrap; word-break: break-word; color: #a3e635;
+.console-header-actions { display: flex; gap: 6px; align-items: center; }
+.console-output {
+    flex: 1;
+    overflow-y: auto;
+    margin: 0;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    word-break: break-all;
 }
 
 .loader-picker { position: relative; width: 100%; }
