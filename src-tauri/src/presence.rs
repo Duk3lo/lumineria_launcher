@@ -82,32 +82,37 @@ async fn refresh_discord_presence(
 
     match active {
         Some(instance) => {
-            let (large_image, large_text) = loader_presence_assets(&instance.loader_name);
-
+            let (loader_img, loader_text) = loader_presence_assets(&instance.loader_name);
             let party_size = match (instance.players_online, instance.max_players) {
                 (Some(online), Some(max)) if max > 0 => Some((online, max)),
                 _ => None,
             };
+            let large_image = "launcher_icon".to_string();
+            let large_text = format!("Lumineria - {}", instance.title);
+            let small_image = instance.server_icon.clone().unwrap_or_else(|| loader_img.to_string());
+            let small_text = instance.server_name.clone().unwrap_or_else(|| loader_text.clone());
+
+            let state_text = instance.server_name.clone().unwrap_or_else(|| "Jugando en Solitario".into());
 
             discord.send(discord::DiscordCommand::UpdateActivity {
                 details: format!("Jugando {}", instance.title),
-                state: instance.server_name.clone().unwrap_or_else(|| large_text.clone()),
-                large_image: Some(large_image.to_string()),
+                state: state_text,
+                large_image: Some(large_image),
                 large_text: Some(large_text),
-                small_image: instance.server_icon.clone(),
-                small_text: instance.server_name.clone(),
+                small_image: Some(small_image),
+                small_text: Some(small_text),
                 start_timestamp: Some(instance.launched_at),
                 party_size,
             });
         }
         None => {
             discord.send(discord::DiscordCommand::UpdateActivity {
-                details: "En el launcher".into(),
-                state: "Explorando modpacks".into(),
+                details: "Navegando por el Launcher".into(),
+                state: "Preparando su próxima aventura".into(),
                 large_image: Some("launcher_icon".into()),
                 large_text: Some("Lumineria Launcher".into()),
-                small_image: None,
-                small_text: None,
+                small_image: Some("vanilla".into()), 
+                small_text: Some("Lumineria".into()),
                 start_timestamp: Some(discord::now_ts()),
                 party_size: None,
             });
