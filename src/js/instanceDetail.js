@@ -1,5 +1,5 @@
 import { PROFILES, deleteProfileFromDisk } from './state.js';
-import { iniciarJuego, abrirCarpetaInstancia } from './launcher.js';
+import { iniciarJuego, abrirCarpetaInstancia, sincronizarModpack, isSyncing } from './launcher.js';
 import { renderModsForInstance } from './mods.js';
 import { renderResourcePacksForInstance } from './resourcePacks.js';
 import { drawProfiles } from './ui.js';
@@ -19,6 +19,7 @@ const viewInstance = document.getElementById('view-instance');
 const btnBack = document.getElementById('btn-back-grid');
 const title = document.getElementById('instance-detail-title');
 const btnPlayKill = document.getElementById('btn-instance-play');
+const btnUpdate = document.getElementById('btn-instance-update');
 const btnDelete = document.getElementById('btn-instance-delete');
 const statusText = document.getElementById('instance-status-text');
 const logsOutput = document.getElementById('instance-logs-output');
@@ -41,9 +42,18 @@ export function initInstanceDetail() {
         const state = INSTANCE_STATE[currentDetailProfileId];
         if (state && state.isRunning) {
             await invoke('kill_instance', { profileId: currentDetailProfileId });
-        } else {
-            iniciarJuego(currentDetailProfileId, false, currentDetailIsLocal, currentDetailLocalProfile);
+            return;
         }
+        if (btnPlayKill.dataset.mode === 'cancel-prep') {
+            await invoke('cancel_preparation', { profileId: currentDetailProfileId });
+            return;
+        }
+        iniciarJuego(currentDetailProfileId, false, currentDetailIsLocal, currentDetailLocalProfile);
+    });
+
+    btnUpdate?.addEventListener('click', async () => {
+        if (!currentDetailProfileId) return;
+        await runSyncForCurrentInstance();
     });
 
     document.getElementById('btn-open-folder-detail').addEventListener('click', () => {
@@ -117,6 +127,29 @@ export function initInstanceDetail() {
             updatePlayKillButton(id);
         }
     });
+
+    document.addEventListener('lumineria:sync-state-changed', (e) => {
+        if (e.detail.id === currentDetailProfileId) {
+            setBusyState(e.detail.syncing);
+        }
+    });
+}
+
+listen('game-started', (event) => {
+    setInstanceRunning(event.payload.id, true);
+});
+
+export function setInstancePreparing(profileId, isPreparing) {
+    if (currentDetailProfileId !== profileId) return;
+    if (isPreparing) {
+        btnPlayKill.innerText = "Cancelar preparación";
+        btnPlayKill.classList.add('btn-kill');
+        btnPlayKill.dataset.mode = 'cancel-prep';
+        statusText.innerText = "Preparando instancia...";
+    } else {
+        btnPlayKill.dataset.mode = '';
+        updatePlayKillButton(profileId);
+    }
 }
 
 export function openInstanceDetail(profileId, isLocal = false, localProfile = null) {
@@ -133,6 +166,9 @@ export function openInstanceDetail(profileId, isLocal = false, localProfile = nu
     logsOutput.textContent = INSTANCE_STATE[profileId].logs.join('\n') + (INSTANCE_STATE[profileId].logs.length > 0 ? '\n' : '');
     logsOutput.scrollTop = logsOutput.scrollHeight;
 
+    const hasPackwiz = !!profile?.packwiz_url;
+    if (btnUpdate) btnUpdate.classList.toggle('hidden', !hasPackwiz);
+
     updatePlayKillButton(profileId);
 
     const defaultTab = document.querySelector('.tab-btn[data-tab="tab-logs"]');
@@ -140,14 +176,54 @@ export function openInstanceDetail(profileId, isLocal = false, localProfile = nu
 
     viewGrid.classList.add('hidden');
     viewInstance.classList.remove('hidden');
+
+    if (hasPackwiz && !isSyncing(profileId)) {
+        runSyncForCurrentInstance({ silent: true });
+    }
 }
 
 export function setInstanceRunning(profileId, isRunning) {
     if (!INSTANCE_STATE[profileId]) INSTANCE_STATE[profileId] = { isRunning: false, logs: [] };
     INSTANCE_STATE[profileId].isRunning = isRunning;
-
     if (currentDetailProfileId === profileId) {
+        if (isRunning) {
+            btnPlayKill.dataset.mode = '';
+        }
         updatePlayKillButton(profileId);
+    }
+}
+
+async function runSyncForCurrentInstance({ silent = false } = {}) {
+    const profileId = currentDetailProfileId;
+    if (!profileId) return;
+
+    setBusyState(true);
+    if (!silent) statusText.innerText = "Sincronizando mods...";
+
+    try {
+        await sincronizarModpack(profileId, { silent: true });
+        if (currentDetailProfileId === profileId) {
+            statusText.innerText = "Mods actualizados.";
+        }
+    } catch (e) {
+        console.warn('No se pudo sincronizar el modpack:', e);
+        if (currentDetailProfileId === profileId) {
+            statusText.innerText = "Error al actualizar mods.";
+        }
+    } finally {
+        setBusyState(false);
+        if (currentDetailProfileId === profileId) {
+            updatePlayKillButton(profileId);
+        }
+    }
+}
+
+function setBusyState(busy) {
+    if (btnPlayKill) btnPlayKill.disabled = busy;
+    if (btnDelete) btnDelete.disabled = busy;
+    if (btnUpdate) {
+        btnUpdate.disabled = busy;
+        btnUpdate.innerText = busy ? '⏳ Actualizando...' : '🔄 Actualizar todo';
     }
 }
 

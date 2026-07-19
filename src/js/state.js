@@ -117,3 +117,37 @@ export async function deleteProfileFromDisk(profileId) {
     await invoke('delete_profile', { baseDir, profileId });
     delete PROFILES[profileId];
 }
+
+export async function syncInstalledProfilesFromDatabase() {
+    let database;
+    try {
+        const baseDir = await getBaseDirectory();
+        database = await invoke('fetch_official_modpacks', { baseDir });
+    } catch (e) {
+        console.warn('No se pudo comprobar actualizaciones del catálogo:', e);
+        return;
+    }
+
+    const FIELDS_TO_SYNC = ['title', 'mc_version', 'version_id', 'java_version', 'loader_name', 'loader_url', 'packwiz_url', 'image'];
+
+    for (const id of Object.keys(PROFILES)) {
+        const remote = database[id];
+        if (!remote) continue;
+
+        const local = PROFILES[id];
+        let changed = false;
+        const merged = { ...local };
+
+        for (const field of FIELDS_TO_SYNC) {
+            if (remote[field] !== undefined && remote[field] !== local[field]) {
+                merged[field] = remote[field];
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            await saveProfileToDisk(id, merged);
+            console.log(`"${merged.title}" actualizado desde el catálogo (nuevo version_id: ${merged.version_id})`);
+        }
+    }
+}

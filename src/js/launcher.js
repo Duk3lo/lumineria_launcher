@@ -1,9 +1,62 @@
 import { PROFILES, getBaseDirectory, getInstanceDir, AUTH_SESSION, SETTINGS, resetInstanceLibraries } from './state.js';
 import { updateStatus, updateCardProgress, setCardPlayState, refreshCardStatus } from './ui.js';
-import { setInstanceRunning } from './instanceDetail.js';
+import { setInstanceRunning, setInstancePreparing } from './instanceDetail.js';
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
+
+
+const syncingInstances = new Set();
+
+export function isSyncing(profileId) {
+    return syncingInstances.has(profileId);
+}
+
+export async function sincronizarModpack(profileId, { silent = false } = {}) {
+    const profile = PROFILES[profileId];
+    if (!profile || !profile.packwiz_url) return;
+    if (syncingInstances.has(profileId)) return;
+
+    syncingInstances.add(profileId);
+    document.dispatchEvent(new CustomEvent('lumineria:sync-state-changed', { detail: { id: profileId, syncing: true } }));
+    try {
+        const baseDir = await getBaseDirectory();
+        const instanceDir = await getInstanceDir(profileId);
+        const installersDir = `${baseDir}/installers`;
+
+        await invoke('ensure_dir', { path: instanceDir });
+        await invoke('ensure_dir', { path: installersDir });
+
+        let javaPath = "java";
+        if (profile.java_version) {
+            try {
+                javaPath = await invoke('verify_and_get_java', { version: profile.java_version, baseDir });
+            } catch {
+                await invoke('download_java_command', { version: profile.java_version, baseDir });
+                javaPath = await invoke('verify_and_get_java', { version: profile.java_version, baseDir });
+            }
+        }
+
+        const packwizUrl = "https://github.com/packwiz/packwiz-installer-bootstrap/releases/latest/download/packwiz-installer-bootstrap.jar";
+        const packwizPath = `${installersDir}/packwiz-installer-bootstrap.jar`;
+
+        if (!silent) updateStatus(`Sincronizando mods de ${profile.title}...`);
+        await invoke('download_generic_file', { url: packwizUrl, destPath: packwizPath });
+        await invoke('execute_jar', {
+            javaPath,
+            jarPath: packwizPath,
+            args: ['-g', profile.packwiz_url],
+            workDir: instanceDir
+        });
+        if (!silent) updateStatus(`Mods de ${profile.title} actualizados.`);
+    } catch (e) {
+        if (!silent) updateStatus(`Error sincronizando mods: ${e}`);
+        throw e;
+    } finally {
+        syncingInstances.delete(profileId);
+        document.dispatchEvent(new CustomEvent('lumineria:sync-state-changed', { detail: { id: profileId, syncing: false } }));
+    }
+}
 
 export async function iniciarJuego(profileId, force = false, isLocal = false, localProfileData = null) {
     const profile = isLocal ? localProfileData : PROFILES[profileId];
@@ -80,19 +133,8 @@ export async function iniciarJuego(profileId, force = false, isLocal = false, lo
         }
 
         if (profile.packwiz_url) {
-            updateStatus(`Sincronizando mods de ${profile.title}...`);
             updateCardProgress(profileId, 60, 'Sincronizando mods...');
-
-            const packwizUrl = "https://github.com/packwiz/packwiz-installer-bootstrap/releases/latest/download/packwiz-installer-bootstrap.jar";
-            const packwizPath = `${installersDir}/packwiz-installer-bootstrap.jar`;
-
-            await invoke('download_generic_file', { url: packwizUrl, destPath: packwizPath });
-            await invoke('execute_jar', {
-                javaPath,
-                jarPath: packwizPath,
-                args: [profile.packwiz_url],
-                workDir: instanceDir
-            });
+            await sincronizarModpack(profileId, { silent: true });
         }
 
         updateStatus("Descargando assets y lanzando el juego...");
@@ -104,6 +146,7 @@ export async function iniciarJuego(profileId, force = false, isLocal = false, lo
             updateCardProgress(profileId, pct, `Descargando assets (${done}/${total})...`);
         });
 
+        setInstancePreparing(profileId, true);
         try {
             setInstanceRunning(profileId, true);
 
@@ -122,6 +165,7 @@ export async function iniciarJuego(profileId, force = false, isLocal = false, lo
                 auth: AUTH_SESSION
             });
         } finally {
+            setInstancePreparing(profileId, false);
             unlisten();
         }
 

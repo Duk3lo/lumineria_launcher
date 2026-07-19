@@ -1,4 +1,4 @@
-import { fetchProfiles, loadSession } from './state.js';
+import { fetchProfiles, loadSession, syncInstalledProfilesFromDatabase } from './state.js';
 import { drawProfiles, updateStatus, initSettingsPanel, initInstanceEventListeners } from './ui.js';
 import { iniciarJuego, abrirCarpetaInstancia } from './launcher.js';
 import { openLoginModal, closeLoginModal, handleOfflineLogin, handleMicrosoftLogin, restoreSession } from './auth.js';
@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         initInstanceEventListeners();
         await initSettingsPanel();
         await fetchProfiles();
+        await syncInstalledProfilesFromDatabase();
         drawProfiles();
         initDialogs();
 
