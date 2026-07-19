@@ -18,6 +18,7 @@ pub struct AppState {
     pub running_instances: Arc<Mutex<Vec<presence::RunningInstance>>>,
     pub discord: discord::DiscordHandle,
     pub ipc_port: u16,
+    pub preparing_cancel: Arc<Mutex<HashMap<String, Arc<std::sync::atomic::AtomicBool>>>>,
 }
 
 #[cfg(debug_assertions)]
@@ -101,6 +102,7 @@ pub fn run() {
                 running_instances,
                 discord: discord_handle,
                 ipc_port,
+                preparing_cancel: Arc::new(Mutex::new(HashMap::new())), // nuevo
             });
             Ok(())
         })
@@ -127,6 +129,7 @@ pub fn run() {
             // --- Games / Minecraft ---
             games::minecraft::launcher::launch_minecraft,
             games::minecraft::vanilla::ensure_vanilla_version,
+            games::minecraft::launcher::cancel_preparation,
             // --- Auth ---
             auth::microsoft::ms_login_start,
             auth::microsoft::ms_login_poll,
@@ -152,7 +155,9 @@ pub fn run() {
             instance::profiles::get_minecraft_default_path,
             instance::profiles::fetch_official_modpacks,
             instance::profiles::fetch_neoforge_versions,
-            instance::profiles::fetch_forge_versions
+            instance::profiles::fetch_forge_versions,
+            // --- Paquetes Especiales ---
+            instance::packwiz::sync_packwiz_modpack
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

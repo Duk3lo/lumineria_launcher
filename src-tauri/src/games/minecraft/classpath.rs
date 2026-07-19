@@ -40,10 +40,7 @@ pub fn maven_to_path(name: &str) -> String {
     )
 }
 
-pub fn build_classpath(
-    instance_dir: &Path,
-    version_json: &Value
-) -> Result<String, String> {
+pub fn build_classpath(instance_dir: &Path, version_json: &Value) -> Result<String, String> {
     let separator = if cfg!(target_os = "windows") {
         ";"
     } else {
@@ -97,6 +94,7 @@ pub fn build_classpath(
 pub async fn ensure_libraries(
     instance_dir: &std::path::Path,
     version_json: &Value,
+    cancel: &std::sync::Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<(), String> {
     let libs = match version_json["libraries"].as_array() {
         Some(l) => l,
@@ -108,6 +106,9 @@ pub async fn ensure_libraries(
         .map_err(|e| e.to_string())?;
 
     for lib in libs {
+        if cancel.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err("Cancelado por el usuario".to_string());
+        }
         if !library_allowed(lib) {
             continue;
         }
