@@ -1,15 +1,19 @@
-use tokio::net::{TcpListener, TcpStream};
-use tokio::io::{AsyncBufReadExt, BufReader};
 use serde::Deserialize;
 use std::sync::Arc;
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Mutex;
-use crate::discord::{DiscordHandle, DiscordCommand, now_ts};
+
+use crate::discord::{now_ts, DiscordCommand, DiscordHandle};
 use crate::presence::{update_instance_status, RunningInstance};
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ModEvent {
-    ServerJoin { host: String, port: u16 },
+    ServerJoin {
+        host: String,
+        port: u16,
+    },
     ServerLeave,
     StatusUpdate {
         profile_id: String,
@@ -67,7 +71,13 @@ async fn handle_event(
     running_instances: &Arc<Mutex<Vec<RunningInstance>>>,
 ) {
     match event {
-        ModEvent::StatusUpdate { profile_id, players_online, max_players, server_name, server_icon } => {
+        ModEvent::StatusUpdate {
+            profile_id,
+            players_online,
+            max_players,
+            server_name,
+            server_icon,
+        } => {
             update_instance_status(
                 running_instances,
                 discord,
@@ -76,7 +86,8 @@ async fn handle_event(
                 max_players,
                 server_name,
                 server_icon,
-            ).await;
+            )
+            .await;
         }
         ModEvent::ServerJoin { host, port } => {
             let (state_text, large_text) = match ping_server(&host, port).await {

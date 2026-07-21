@@ -1,6 +1,7 @@
-use crate::discord;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+
+use crate::discord;
 
 #[derive(Debug, Clone, Default)]
 pub struct RunningInstance {

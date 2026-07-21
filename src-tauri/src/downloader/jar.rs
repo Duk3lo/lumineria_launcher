@@ -3,6 +3,7 @@ use std::process::Stdio;
 use tauri::Emitter;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
+
 use crate::net::HideConsoleExt;
 
 #[tauri::command]
@@ -28,8 +29,9 @@ pub async fn execute_jar(
     let mut child = command
         .spawn()
         .map_err(|e| format!("Fallo al ejecutar Java: {}", e))?;
-    let stdout_reader = child.stdout.take().unwrap();
-    let stderr_reader = child.stderr.take().unwrap();
+    let stdout_reader = child.stdout.take().ok_or("No se pudo capturar stdout del proceso")?;
+    let stderr_reader = child.stderr.take().ok_or("No se pudo capturar stderr del proceso")?;
+
     let window_out = window.clone();
     let out_task = tokio::spawn(async move {
         let mut reader = BufReader::new(stdout_reader).lines();
@@ -50,7 +52,11 @@ pub async fn execute_jar(
             );
         }
     });
-    let status = child.wait().await.unwrap();
+
+    let status = child
+        .wait()
+        .await
+        .map_err(|e| format!("Error esperando al proceso de Java: {}", e))?;
     out_task.abort();
     err_task.abort();
 
@@ -62,10 +68,7 @@ pub async fn execute_jar(
 }
 
 #[tauri::command]
-pub async fn check_version_installed(
-    instance_dir: String,
-    version_id: String,
-) -> Result<bool, String> {
+pub async fn check_version_installed(instance_dir: String, version_id: String) -> Result<bool, String> {
     let json_path = PathBuf::from(instance_dir)
         .join("versions")
         .join(&version_id)

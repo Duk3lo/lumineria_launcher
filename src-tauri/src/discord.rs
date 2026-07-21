@@ -1,5 +1,5 @@
 use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
-use std::sync::mpsc::{channel, Sender, Receiver, RecvTimeoutError};
+use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -55,7 +55,9 @@ fn discord_worker_loop(rx: Receiver<DiscordCommand>) {
 
         match rx.recv_timeout(Duration::from_secs(5)) {
             Ok(DiscordCommand::Shutdown) => {
-                if let Some(mut c) = client.take() { let _ = c.close(); }
+                if let Some(mut c) = client.take() {
+                    let _ = c.close();
+                }
                 break;
             }
             Ok(cmd) => {
@@ -74,12 +76,29 @@ fn apply(client: &mut Option<DiscordIpcClient>, cmd: DiscordCommand) {
     let result = match cmd {
         DiscordCommand::Clear => c.clear_activity(),
         DiscordCommand::Shutdown => Ok(()),
-        DiscordCommand::UpdateActivity { details, state, large_image, large_text, small_image, small_text, start_timestamp, party_size } => {
+        DiscordCommand::UpdateActivity {
+            details,
+            state,
+            large_image,
+            large_text,
+            small_image,
+            small_text,
+            start_timestamp,
+            party_size,
+        } => {
             let mut assets = activity::Assets::new();
-            if let Some(ref img) = large_image { assets = assets.large_image(img); }
-            if let Some(ref t) = large_text { assets = assets.large_text(t); }
-            if let Some(ref img) = small_image { assets = assets.small_image(img); }
-            if let Some(ref t) = small_text { assets = assets.small_text(t); }
+            if let Some(ref img) = large_image {
+                assets = assets.large_image(img);
+            }
+            if let Some(ref t) = large_text {
+                assets = assets.large_text(t);
+            }
+            if let Some(ref img) = small_image {
+                assets = assets.small_image(img);
+            }
+            if let Some(ref t) = small_text {
+                assets = assets.small_text(t);
+            }
 
             let mut act = activity::Activity::new()
                 .details(&details)
@@ -100,6 +119,7 @@ fn apply(client: &mut Option<DiscordIpcClient>, cmd: DiscordCommand) {
         *client = None;
     }
 }
+
 pub fn now_ts() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64
 }

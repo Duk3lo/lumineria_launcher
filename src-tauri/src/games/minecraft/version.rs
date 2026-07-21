@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use std::path::Path;
 
 pub async fn load_version_json(instance_dir: &Path, version_id: &str) -> Result<Value, String> {
-    let path = instance_dir.join("versions").join(version_id).join(format!("{}.json", version_id));
+    let path = instance_dir
+        .join("versions")
+        .join(version_id)
+        .join(format!("{}.json", version_id));
     let raw = tokio::fs::read_to_string(&path).await.map_err(|e| e.to_string())?;
     serde_json::from_str(&raw).map_err(|e| e.to_string())
 }
@@ -58,13 +61,17 @@ pub fn library_key(lib: &Value) -> String {
         if parts.len() >= 3 {
             let mut key = format!("{}:{}", parts[0], parts[1]);
             if let Some(classifier) = parts.get(3) {
-                key.push(':'); key.push_str(classifier);
+                key.push(':');
+                key.push_str(classifier);
             }
             return key;
         }
         return name.to_string();
     }
-    lib["downloads"]["artifact"]["path"].as_str().unwrap_or_default().to_string()
+    lib["downloads"]["artifact"]["path"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string()
 }
 
 pub fn dedupe_libraries(libs: &[Value]) -> Vec<Value> {
@@ -75,7 +82,10 @@ pub fn dedupe_libraries(libs: &[Value]) -> Vec<Value> {
         let key = library_key(lib);
         let has_downloads = lib["downloads"]["artifact"]["path"].as_str().is_some();
         match map.get(&key) {
-            None => { order.push(key.clone()); map.insert(key, lib.clone()); }
+            None => {
+                order.push(key.clone());
+                map.insert(key, lib.clone());
+            }
             Some(existing) => {
                 let existing_has_downloads = existing["downloads"]["artifact"]["path"].as_str().is_some();
                 if has_downloads || !existing_has_downloads {

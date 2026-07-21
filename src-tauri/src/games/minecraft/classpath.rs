@@ -43,11 +43,7 @@ pub fn maven_to_path(name: &str) -> String {
 }
 
 pub fn build_classpath(instance_dir: &Path, version_json: &Value) -> Result<String, String> {
-    let separator = if cfg!(target_os = "windows") {
-        ";"
-    } else {
-        ":"
-    };
+    let separator = if cfg!(target_os = "windows") { ";" } else { ":" };
     let mut jars = Vec::new();
 
     if let Some(libs) = version_json["libraries"].as_array() {
@@ -151,9 +147,7 @@ pub async fn ensure_libraries(
             .map_err(|e| format!("Sin conexión al descargar {}: {}", rel_path, e))?;
         if resp.status().is_success() {
             let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
-            tokio::fs::write(&dest, &bytes)
-                .await
-                .map_err(|e| e.to_string())?;
+            tokio::fs::write(&dest, &bytes).await.map_err(|e| e.to_string())?;
         }
     }
     Ok(())

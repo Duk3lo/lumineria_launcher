@@ -1,6 +1,6 @@
 use serde_json::Value;
-use std::path::PathBuf;
 use std::fs;
+use std::path::PathBuf;
 
 use crate::net::{self, DEFAULT_MODPACKS_API_URL};
 
@@ -109,10 +109,10 @@ pub async fn get_installed_vanilla_versions() -> Result<Value, String> {
 
 #[tauri::command]
 pub async fn delete_profile(base_dir: String, profile_id: String) -> Result<(), String> {
-    let path = std::path::PathBuf::from(&base_dir).join("profiles.json");
+    let path = PathBuf::from(&base_dir).join("profiles.json");
     if path.exists() {
         let data = tokio::fs::read_to_string(&path).await.map_err(|e| e.to_string())?;
-        let mut profiles: serde_json::Value = serde_json::from_str(&data).map_err(|e| e.to_string())?;
+        let mut profiles: Value = serde_json::from_str(&data).map_err(|e| e.to_string())?;
 
         if let Some(obj) = profiles.as_object_mut() {
             obj.remove(&profile_id);
@@ -122,7 +122,7 @@ pub async fn delete_profile(base_dir: String, profile_id: String) -> Result<(), 
             .await
             .map_err(|e| e.to_string())?;
     }
-    let instance_path = std::path::PathBuf::from(&base_dir).join("instances").join(&profile_id);
+    let instance_path = PathBuf::from(&base_dir).join("instances").join(&profile_id);
     if instance_path.exists() {
         tokio::fs::remove_dir_all(&instance_path).await.map_err(|e| e.to_string())?;
     }

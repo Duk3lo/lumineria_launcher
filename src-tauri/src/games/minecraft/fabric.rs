@@ -35,8 +35,7 @@ pub async fn ensure_fabric_profile(
         .await
         .map_err(|e| e.to_string())?;
 
-    let _: Value = serde_json::from_str(&raw)
-        .map_err(|e| format!("Perfil de Fabric inválido: {}", e))?;
+    let _: Value = serde_json::from_str(&raw).map_err(|e| format!("Perfil de Fabric inválido: {}", e))?;
 
     tokio::fs::write(&json_path, &raw)
         .await

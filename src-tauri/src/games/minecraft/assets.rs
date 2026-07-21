@@ -14,9 +14,7 @@ pub async fn ensure_assets(
     version_json: &Value,
     cancel: &Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<(), String> {
-    let asset_id = version_json["assetIndex"]["id"]
-        .as_str()
-        .unwrap_or("legacy");
+    let asset_id = version_json["assetIndex"]["id"].as_str().unwrap_or("legacy");
     let asset_url = version_json["assetIndex"]["url"].as_str();
 
     let indexes_dir = instance_dir.join("assets").join("indexes");
@@ -31,8 +29,7 @@ pub async fn ensure_assets(
             .map_err(|e| e.to_string())?;
         serde_json::from_str(&content).map_err(|e| format!("JSON del índice corrupto: {}", e))?
     } else {
-        let url =
-            asset_url.ok_or("No se encontró la URL del assetIndex en el JSON de la versión")?;
+        let url = asset_url.ok_or("No se encontró la URL del assetIndex en el JSON de la versión")?;
         let resp = net::download_client()
             .get(url)
             .send()
@@ -45,10 +42,7 @@ pub async fn ensure_assets(
         serde_json::from_str(&raw).map_err(|e| e.to_string())?
     };
     let objects_dir = instance_dir.join("assets").join("objects");
-    let objects = index_json["objects"]
-        .as_object()
-        .cloned()
-        .unwrap_or_default();
+    let objects = index_json["objects"].as_object().cloned().unwrap_or_default();
     let mut pending = Vec::new();
 
     for meta in objects.values() {
@@ -87,10 +81,7 @@ pub async fn ensure_assets(
                     .map_err(|e| e.to_string())?;
                 let dest_file = dest_dir.join(&hash);
 
-                let url = format!(
-                    "https://resources.download.minecraft.net/{}/{}",
-                    prefix, hash
-                );
+                let url = format!("https://resources.download.minecraft.net/{}/{}", prefix, hash);
 
                 let mut success = false;
                 let mut last_error = String::new();

@@ -1,10 +1,11 @@
-use crate::net::{self, HideConsoleExt};
 use anyhow::Result;
 use futures_util::StreamExt;
 use std::path::{Path, PathBuf};
 use std::process::Command as StdCommand;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
+
+use crate::net::{self, HideConsoleExt};
 
 #[tauri::command]
 pub async fn verify_and_get_java(version: u8, base_dir: String) -> Result<String, String> {
@@ -61,11 +62,7 @@ fn detect_java_major_version(java_bin: &str) -> Option<u8> {
 }
 
 fn find_executable(base_dir: &Path) -> Option<PathBuf> {
-    let target_name = if cfg!(target_os = "windows") {
-        "java.exe"
-    } else {
-        "java"
-    };
+    let target_name = if cfg!(target_os = "windows") { "java.exe" } else { "java" };
     if !base_dir.exists() {
         return None;
     }

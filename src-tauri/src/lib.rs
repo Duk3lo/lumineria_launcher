@@ -5,9 +5,9 @@ mod games;
 mod instance;
 mod ipc;
 mod java;
+mod net;
 mod presence;
 mod settings;
-mod net;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -47,9 +47,7 @@ fn get_default_path(app: tauri::AppHandle) -> String {
 
 #[tauri::command]
 async fn ensure_dir(path: String) -> Result<(), String> {
-    tokio::fs::create_dir_all(&path)
-        .await
-        .map_err(|e| e.to_string())
+    tokio::fs::create_dir_all(&path).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -58,10 +56,7 @@ fn open_folder(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn kill_instance(
-    profile_id: String,
-    state: tauri::State<'_, AppState>,
-) -> Result<(), String> {
+async fn kill_instance(profile_id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
     let mut processes = state.running_processes.lock().await;
     if let Some(tx) = processes.remove(&profile_id) {
         let _ = tx.send(());
@@ -103,7 +98,7 @@ pub fn run() {
                 running_instances,
                 discord: discord_handle,
                 ipc_port,
-                preparing_cancel: Arc::new(Mutex::new(HashMap::new())), // nuevo
+                preparing_cancel: Arc::new(Mutex::new(HashMap::new())),
             });
             Ok(())
         })
@@ -146,7 +141,7 @@ pub fn run() {
             instance::mods::list_resource_packs,
             instance::mods::toggle_resource_pack,
             instance::reset::reset_instance_libraries,
-            // --- Profiles (NUEVO: Lógica de base de datos) ---
+            // --- Profiles ---
             instance::profiles::load_launcher_config,
             instance::profiles::save_launcher_config,
             instance::profiles::load_profiles,
@@ -159,7 +154,7 @@ pub fn run() {
             instance::profiles::fetch_neoforge_versions,
             instance::profiles::fetch_forge_versions,
             instance::profiles::cleanup_old_version,
-            // --- Paquetes Especiales ---
+            // --- Paquetes especiales ---
             instance::packwiz::sync_packwiz_modpack
         ])
         .run(tauri::generate_context!())

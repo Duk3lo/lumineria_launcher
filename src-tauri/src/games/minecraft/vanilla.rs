@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use serde_json::Value;
+use std::path::PathBuf;
 
 use crate::net;
 
@@ -20,8 +20,7 @@ pub async fn ensure_vanilla_version(instance_dir: String, mc_version: String) ->
         let raw = tokio::fs::read_to_string(&json_path)
             .await
             .map_err(|e| format!("No se pudo leer {}.json: {}", mc_version, e))?;
-        serde_json::from_str(&raw)
-            .map_err(|e| format!("{}.json corrupto: {}", mc_version, e))?
+        serde_json::from_str(&raw).map_err(|e| format!("{}.json corrupto: {}", mc_version, e))?
     } else {
         let manifest_resp = net::http_client()
             .get(VERSION_MANIFEST_URL)
@@ -57,8 +56,7 @@ pub async fn ensure_vanilla_version(instance_dir: String, mc_version: String) ->
             .await
             .map_err(|e| e.to_string())?;
 
-        serde_json::from_str(&raw)
-            .map_err(|e| format!("{}.json inválido: {}", mc_version, e))?
+        serde_json::from_str(&raw).map_err(|e| format!("{}.json inválido: {}", mc_version, e))?
     };
 
     if !jar_path.exists() {
