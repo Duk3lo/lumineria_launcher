@@ -105,15 +105,23 @@ export function initInstanceDetail() {
         });
     });
 
+    let logsFlushQueued = false;
+
     listen('game-log', (event) => {
         const { id, line } = event.payload;
         if (!INSTANCE_STATE[id]) INSTANCE_STATE[id] = { isRunning: true, logs: [] };
 
-        INSTANCE_STATE[id].logs.push(line);
-        if (INSTANCE_STATE[id].logs.length > 2000) INSTANCE_STATE[id].logs.shift();
-        if (currentDetailProfileId === id) {
-            logsOutput.textContent += line + '\n';
-            logsOutput.scrollTop = logsOutput.scrollHeight;
+        const state = INSTANCE_STATE[id];
+        state.logs.push(line);
+        if (state.logs.length > 2000) state.logs.shift();
+
+        if (currentDetailProfileId === id && !logsFlushQueued) {
+            logsFlushQueued = true;
+            requestAnimationFrame(() => {
+                logsFlushQueued = false;
+                logsOutput.textContent = INSTANCE_STATE[id].logs.join('\n') + '\n';
+                logsOutput.scrollTop = logsOutput.scrollHeight;
+            });
         }
     });
 
@@ -159,7 +167,10 @@ export function initInstanceDetail() {
 }
 
 listen('game-started', (event) => {
-    setInstanceRunning(event.payload.id, true);
+    const { id } = event.payload;
+    INSTANCE_STATE[id] = { isRunning: true, logs: [] };
+    if (currentDetailProfileId === id) logsOutput.textContent = '';
+    setInstanceRunning(id, true);
 });
 
 export function setInstancePreparing(profileId, isPreparing) {
