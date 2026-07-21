@@ -197,3 +197,12 @@ pub async fn delete_vanilla_version(version_id: String) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[tauri::command]
+pub async fn cleanup_old_version(instance_dir: String, old_version_id: String) -> Result<(), String> {
+    let path = PathBuf::from(&instance_dir).join("versions").join(&old_version_id);
+    if path.exists() {
+        tokio::fs::remove_dir_all(&path).await.map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}

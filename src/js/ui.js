@@ -17,6 +17,7 @@ const profilesGrid = document.getElementById('profiles-grid');
 
 const { listen } = window.__TAURI__.event;
 const runningInstances = new Set();
+const cardProgressState = new Map();
 
 export function isInstanceRunning(id) {
     return runningInstances.has(id);
@@ -64,6 +65,7 @@ export async function drawProfiles() {
         profilesGrid.innerHTML = `<p class="mods-empty-state">No hay instancias. ¡Crea una nueva o instala una oficial!</p>`;
     }
     refreshAllCardStatuses(Object.keys(PROFILES));
+    Object.keys(PROFILES).forEach(id => applyCardProgressDOM(id));
 }
 function renderSection(title, items, isVanillaLocal) {
     const header = document.createElement('h2');
@@ -130,13 +132,14 @@ function buildProfileCard(id, profile, isVanillaLocal) {
     card.addEventListener('click', async (event) => {
         const btn = event.target.closest('button');
         const action = btn ? btn.dataset.action : null;
+
+        if (btn) event.stopPropagation();
+
         if (action === 'toggle-menu') {
-            event.stopPropagation();
             toggleCardDropdown(id);
             return;
         }
         if (action === 'play') {
-            event.stopPropagation();
             closeAllDropdowns();
             document.dispatchEvent(new CustomEvent('lumineria:play-profile', {
                 detail: { id, isLocal: isVanillaLocal, localProfile: isVanillaLocal ? profile : null }
@@ -144,12 +147,30 @@ function buildProfileCard(id, profile, isVanillaLocal) {
             return;
         }
         if (action === 'kill') {
-            event.stopPropagation();
             invoke('kill_instance', { profileId: id });
             return;
         }
+        if (action === 'open-folder') {
+            closeAllDropdowns();
+            document.dispatchEvent(new CustomEvent('lumineria:open-folder', { detail: { id } }));
+            return;
+        }
+        if (action === 'view-mods') {
+            closeAllDropdowns();
+            document.dispatchEvent(new CustomEvent('lumineria:open-mods', { detail: { id } }));
+            return;
+        }
+        if (action === 'reinstall') {
+            closeAllDropdowns();
+            const confirmado = await showConfirm(`¿Reinstalar "${profile.title}"? Se reinstalará el cargador y las librerías.`);
+            if (confirmado) {
+                document.dispatchEvent(new CustomEvent('lumineria:play-profile', {
+                    detail: { id, force: true, isLocal: false, localProfile: null }
+                }));
+            }
+            return;
+        }
         if (action === 'delete') {
-            event.stopPropagation();
             closeAllDropdowns();
             const confirmado = await showConfirm(
                 `¿Eliminar "${profile.title}" permanentemente? Se borrará la carpeta de la instancia y no se podrá deshacer.`
@@ -158,6 +179,22 @@ function buildProfileCard(id, profile, isVanillaLocal) {
                 try {
                     await deleteProfileFromDisk(id);
                     updateStatus(`Instancia "${profile.title}" eliminada.`);
+                    drawProfiles();
+                } catch (e) {
+                    await showAlert("Error al eliminar: " + e);
+                }
+            }
+            return;
+        }
+        if (action === 'delete-local') {
+            closeAllDropdowns();
+            const confirmado = await showConfirm(
+                `¿Eliminar "${profile.title}" de tu carpeta .minecraft real? Esto borra la versión instalada directamente de tu instalación de Minecraft.`
+            );
+            if (confirmado) {
+                try {
+                    await invoke('delete_vanilla_version', { versionId: id });
+                    updateStatus(`"${profile.title}" eliminado de .minecraft.`);
                     drawProfiles();
                 } catch (e) {
                     await showAlert("Error al eliminar: " + e);
@@ -198,7 +235,10 @@ export async function refreshCardStatus(id) {
         const dot = document.getElementById(`status-dot-${id}`);
         const playBtn = document.getElementById(`play-btn-${id}`);
 
-        if (dot) dot.classList.toggle('installed', status.installed);
+        if (dot) {
+            dot.classList.toggle('installed', status.installed);
+            dot.title = status.installed ? 'Instalado y listo' : 'No instalado';
+        }
         if (playBtn && !isInstanceRunning(id)) {
             playBtn.innerText = status.installed ? 'Jugar' : 'Instalar';
         }
@@ -211,22 +251,37 @@ export function setCardPlayState(id, disabled) {
 }
 
 export function updateCardProgress(id, percent, label) {
+    if (percent <= 0) {
+        cardProgressState.delete(id);
+    } else {
+        cardProgressState.set(id, { percent, label });
+    }
+    applyCardProgressDOM(id);
+}
+
+function applyCardProgressDOM(id) {
     const container = document.getElementById(`card-progress-${id}`);
     const fill = document.getElementById(`card-progress-fill-${id}`);
     const labelEl = document.getElementById(`card-progress-label-${id}`);
     if (!container || !fill) return;
 
-    if (percent <= 0) {
+    const state = cardProgressState.get(id);
+    if (!state) {
         container.classList.add('hidden');
         fill.style.width = '0%';
         return;
     }
 
     container.classList.remove('hidden');
-    fill.style.width = `${percent}%`;
-    if (labelEl && label) labelEl.innerText = label;
+    fill.style.width = `${state.percent}%`;
+    if (labelEl && state.label) labelEl.innerText = state.label;
 
-    if (percent >= 100) setTimeout(() => container.classList.add('hidden'), 1500);
+    if (state.percent >= 100) {
+        setTimeout(() => {
+            container.classList.add('hidden');
+            cardProgressState.delete(id);
+        }, 1500);
+    }
 }
 
 export async function initSettingsPanel() {

@@ -40,6 +40,8 @@
     padding: 40px 60px;
     z-index: 5;
     overflow-y: auto;
+    will-change: scroll-position;
+    -webkit-overflow-scrolling: touch;
 }
 
 .content::-webkit-scrollbar { width: 8px; }
@@ -51,7 +53,7 @@
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) translateZ(0);
     width: 70%;
     height: 70%;
     background-image: url('../assets/cristal-central.png');
@@ -59,10 +61,11 @@
     background-position: center;
     background-size: contain;
     opacity: 0.6;
-    filter: drop-shadow(0 0 30px rgba(192, 132, 252, 0.4));
+
     pointer-events: none;
     z-index: 2;
     animation: flotar 6s ease-in-out infinite;
+    will-change: transform, filter; /* Magia anti-lag */
 }
 
 @keyframes flotar {

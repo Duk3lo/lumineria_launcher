@@ -41,7 +41,17 @@ pub fn check_local_java(required_version: u8, base_dir: &str) -> JavaStatus {
 }
 
 fn detect_java_major_version(java_bin: &str) -> Option<u8> {
-    let output = StdCommand::new(java_bin).arg("-version").output().ok()?;
+    let mut cmd = StdCommand::new(java_bin);
+    cmd.arg("-version");
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    let output = cmd.output().ok()?;
     let stderr = String::from_utf8_lossy(&output.stderr);
     let first_line = stderr.lines().next()?;
     let version_str = first_line.split('"').nth(1)?;

@@ -131,12 +131,18 @@ export async function syncInstalledProfilesFromDatabase() {
     const FIELDS_TO_SYNC = ['title', 'mc_version', 'version_id', 'java_version', 'loader_name', 'loader_url', 'packwiz_url', 'image'];
 
     for (const id of Object.keys(PROFILES)) {
+        const local = PROFILES[id];
+        if (!local.is_official) continue;
+
         const remote = database[id];
         if (!remote) continue;
 
-        const local = PROFILES[id];
         let changed = false;
         const merged = { ...local };
+
+        const versionChanged = remote.version_id !== undefined && remote.version_id !== local.version_id;
+        const loaderChanged = remote.loader_name !== undefined && remote.loader_name !== local.loader_name;
+        const javaChanged = remote.java_version !== undefined && remote.java_version !== local.java_version;
 
         for (const field of FIELDS_TO_SYNC) {
             if (remote[field] !== undefined && remote[field] !== local[field]) {
@@ -144,10 +150,58 @@ export async function syncInstalledProfilesFromDatabase() {
                 changed = true;
             }
         }
+        if (!changed) continue;
+        if (versionChanged || loaderChanged || javaChanged) {
+            try {
+                const instanceDir = await getInstanceDir(id);
+                await invoke('cleanup_old_version', { instanceDir, oldVersionId: local.version_id });
+            } catch (e) {
+                console.warn(`No se pudo limpiar la versión anterior de ${merged.title}:`, e);
+            }
+        }
 
-        if (changed) {
-            await saveProfileToDisk(id, merged);
-            console.log(`"${merged.title}" actualizado desde el catálogo (nuevo version_id: ${merged.version_id})`);
+        await saveProfileToDisk(id, merged);
+        console.log(`"${merged.title}" actualizado automáticamente desde el catálogo.`);
+    }
+}
+
+
+export async function syncSingleProfileFromDatabase(id) {
+    let database;
+    try {
+        const baseDir = await getBaseDirectory();
+        database = await invoke('fetch_official_modpacks', { baseDir });
+    } catch (e) {
+        throw new Error("No se pudo conectar al servidor para actualizar.");
+    }
+
+    const remote = database[id];
+    if (!remote) throw new Error("Esta instancia no existe en la base de datos oficial.");
+
+    const local = PROFILES[id];
+    let changed = false;
+    const merged = { ...local, is_official: true };
+
+    const FIELDS_TO_SYNC = ['title', 'mc_version', 'version_id', 'java_version', 'loader_name', 'loader_url', 'packwiz_url', 'image'];
+
+    const versionChanged = remote.version_id !== local.version_id;
+    const loaderChanged = remote.loader_name !== local.loader_name;
+    const javaChanged = remote.java_version !== local.java_version;
+
+    for (const field of FIELDS_TO_SYNC) {
+        if (remote[field] !== undefined && remote[field] !== local[field]) {
+            merged[field] = remote[field];
+            changed = true;
         }
     }
+
+    if (versionChanged || loaderChanged || javaChanged) {
+        try {
+            const instanceDir = await getInstanceDir(id);
+            await invoke('cleanup_old_version', { instanceDir, oldVersionId: local.version_id });
+        } catch (e) { }
+    }
+
+    await saveProfileToDisk(id, merged);
+    return changed;
 }

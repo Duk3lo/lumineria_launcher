@@ -68,7 +68,8 @@
 
                 <div class="instance-controls">
                     <button id="btn-instance-play" class="primary-btn play-btn-large">Jugar</button>
-                    <button id="btn-instance-update" class="secondary-btn">🔄 Actualizar todo</button>
+                    <button id="btn-instance-check-db" class="secondary-btn hidden">🔍 Buscar cambios en BD</button>
+                    <button id="btn-instance-update" class="secondary-btn">🔄 Actualizar paquetes</button>
                     <div id="instance-status-text">Lista para jugar</div>
                 </div>
 
@@ -207,7 +208,9 @@
             <div class="console-header-actions">
                 <button id="console-clear-btn" class="secondary-btn"
                     style="padding:4px 10px;font-size:0.8rem;">Limpiar</button>
-                <button id="console-close-btn" class="modal-close">×</button>
+                <span class="console-close-btn-wrapper">
+                    <button id="console-close-btn" class="modal-close" style="position:static;">×</button>
+                </span>
             </div>
         </div>
         <pre id="console-output" class="console-output"></pre>

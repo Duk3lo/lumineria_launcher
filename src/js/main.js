@@ -8,7 +8,7 @@ import { loadExploreModpacks, initExplore } from './explore.js';
 import { initDialogs } from './dialogs.js';
 import { initConsole } from './console.js';
 
-
+// Ya no necesitamos appWindow.onResized, el CSS se encarga de todo nativamente.
 
 async function checkForUpdates() {
     try {

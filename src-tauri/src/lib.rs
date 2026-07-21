@@ -158,6 +158,7 @@ pub fn run() {
             instance::profiles::fetch_official_modpacks,
             instance::profiles::fetch_neoforge_versions,
             instance::profiles::fetch_forge_versions,
+            instance::profiles::cleanup_old_version,
             // --- Paquetes Especiales ---
             instance::packwiz::sync_packwiz_modpack
         ])

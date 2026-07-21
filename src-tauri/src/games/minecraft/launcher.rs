@@ -31,7 +31,10 @@ pub struct LaunchOptions {
 }
 
 #[tauri::command]
-pub async fn cancel_preparation(profile_id: String, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn cancel_preparation(
+    profile_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     let flags = state.preparing_cancel.lock().await;
     if let Some(flag) = flags.get(&profile_id) {
         flag.store(true, Ordering::SeqCst);
@@ -47,12 +50,20 @@ pub async fn launch_minecraft(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let cancel_flag = Arc::new(AtomicBool::new(false));
-    state.preparing_cancel.lock().await.insert(options.profile_id.clone(), cancel_flag.clone());
+    state
+        .preparing_cancel
+        .lock()
+        .await
+        .insert(options.profile_id.clone(), cancel_flag.clone());
 
     macro_rules! bail_if_cancelled {
         () => {
             if cancel_flag.load(Ordering::SeqCst) {
-                state.preparing_cancel.lock().await.remove(&options.profile_id);
+                state
+                    .preparing_cancel
+                    .lock()
+                    .await
+                    .remove(&options.profile_id);
                 return Err("Cancelado por el usuario".to_string());
             }
         };
@@ -78,16 +89,29 @@ pub async fn launch_minecraft(
         .as_str()
         .ok_or("mainClass no encontrado")?
         .to_string();
-    let classpath_separator = if cfg!(target_os = "windows") { ";" } else { ":" };
+    let classpath_separator = if cfg!(target_os = "windows") {
+        ";"
+    } else {
+        ":"
+    };
 
     let mut vars = HashMap::new();
     vars.insert("auth_player_name".into(), auth.username.clone());
     vars.insert("version_name".into(), options.version_id.clone());
-    vars.insert("game_directory".into(), instance_dir.to_string_lossy().to_string());
-    vars.insert("assets_root".into(), instance_dir.join("assets").to_string_lossy().to_string());
+    vars.insert(
+        "game_directory".into(),
+        instance_dir.to_string_lossy().to_string(),
+    );
+    vars.insert(
+        "assets_root".into(),
+        instance_dir.join("assets").to_string_lossy().to_string(),
+    );
     vars.insert(
         "assets_index_name".into(),
-        version_json["assetIndex"]["id"].as_str().unwrap_or("legacy").to_string(),
+        version_json["assetIndex"]["id"]
+            .as_str()
+            .unwrap_or("legacy")
+            .to_string(),
     );
     vars.insert("auth_uuid".into(), auth.uuid.clone());
     vars.insert("auth_access_token".into(), auth.access_token.clone());
@@ -95,12 +119,21 @@ pub async fn launch_minecraft(
     vars.insert("auth_xuid".into(), "0".into());
     vars.insert("user_type".into(), auth.user_type.clone());
     vars.insert("version_type".into(), "release".into());
-    vars.insert("natives_directory".into(), instance_dir.join("natives").to_string_lossy().to_string());
+    vars.insert(
+        "natives_directory".into(),
+        instance_dir.join("natives").to_string_lossy().to_string(),
+    );
     vars.insert("launcher_name".into(), "LumineriaLauncher".into());
     vars.insert("launcher_version".into(), "1.0.0".into());
     vars.insert("classpath".into(), classpath);
-    vars.insert("classpath_separator".into(), classpath_separator.to_string());
-    vars.insert("library_directory".into(), instance_dir.join("libraries").to_string_lossy().to_string());
+    vars.insert(
+        "classpath_separator".into(),
+        classpath_separator.to_string(),
+    );
+    vars.insert(
+        "library_directory".into(),
+        instance_dir.join("libraries").to_string_lossy().to_string(),
+    );
 
     let jvm_args = extract_argument_list(&version_json["arguments"]["jvm"], &vars);
     let game_args = extract_argument_list(&version_json["arguments"]["game"], &vars);
@@ -114,22 +147,45 @@ pub async fn launch_minecraft(
     command.arg(format!("-Xms{}M", options.ram_min_mb));
     command.arg(format!("-Xmx{}M", options.ram_max_mb));
 
-    for a in options.extra_java_args.split_whitespace() { command.arg(a); }
-    for a in jvm_args { command.arg(a); }
+    for a in options.extra_java_args.split_whitespace() {
+        command.arg(a);
+    }
+    for a in jvm_args {
+        command.arg(a);
+    }
     command.arg(&main_class);
-    for a in game_args { command.arg(a); }
+    for a in game_args {
+        command.arg(a);
+    }
 
     command.stdout(Stdio::piped());
     command.stderr(Stdio::piped());
+    
 
-    let mut child = command.spawn().map_err(|e| format!("No se pudo lanzar Java: {}", e))?;
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
 
+    let mut child = command
+        .spawn()
+        .map_err(|e| format!("No se pudo lanzar Java: {}", e))?;
 
-    state.preparing_cancel.lock().await.remove(&options.profile_id);
+    state
+        .preparing_cancel
+        .lock()
+        .await
+        .remove(&options.profile_id);
 
     let profile_id = options.profile_id.clone();
     let (tx, mut rx) = tokio::sync::oneshot::channel();
-    state.running_processes.lock().await.insert(profile_id.clone(), tx);
+    state
+        .running_processes
+        .lock()
+        .await
+        .insert(profile_id.clone(), tx);
 
     register_instance(
         &state.running_instances,
@@ -141,7 +197,8 @@ pub async fn launch_minecraft(
             launched_at: crate::discord::now_ts(),
             ..Default::default()
         },
-    ).await;
+    )
+    .await;
 
     let _ = window.emit("game-started", serde_json::json!({ "id": profile_id }));
 

@@ -1,4 +1,4 @@
-import { PROFILES, deleteProfileFromDisk } from './state.js';
+import { PROFILES, deleteProfileFromDisk, syncSingleProfileFromDatabase } from './state.js';
 import { iniciarJuego, abrirCarpetaInstancia, sincronizarModpack, isSyncing } from './launcher.js';
 import { renderModsForInstance } from './mods.js';
 import { renderResourcePacksForInstance } from './resourcePacks.js';
@@ -23,6 +23,7 @@ const btnUpdate = document.getElementById('btn-instance-update');
 const btnDelete = document.getElementById('btn-instance-delete');
 const statusText = document.getElementById('instance-status-text');
 const logsOutput = document.getElementById('instance-logs-output');
+const btnCheckDb = document.getElementById('btn-instance-check-db');
 
 function getCurrentProfile() {
     return currentDetailIsLocal ? currentDetailLocalProfile : PROFILES[currentDetailProfileId];
@@ -133,6 +134,30 @@ export function initInstanceDetail() {
             setBusyState(e.detail.syncing);
         }
     });
+
+    // BOTÓN DE COMPROBAR EN BASE DE DATOS
+    btnCheckDb?.addEventListener('click', async () => {
+        if (!currentDetailProfileId || currentDetailIsLocal) return;
+
+        setBusyState(true);
+        statusText.innerText = "Consultando base de datos oficial...";
+
+        try {
+            const changed = await syncSingleProfileFromDatabase(currentDetailProfileId);
+            if (changed) {
+                statusText.innerText = "¡Nueva versión detectada! Cliente viejo eliminado. Dale a 'Jugar' para descargar el nuevo.";
+                drawProfiles();
+            } else {
+                statusText.innerText = "La instancia ya cuenta con la última versión del servidor.";
+            }
+        } catch (e) {
+            // Si la instancia fue creada a mano y no existe en la BD, te lo dirá amigablemente
+            statusText.innerText = `${e.message}`;
+        } finally {
+            setTimeout(() => updatePlayKillButton(currentDetailProfileId), 4000);
+            setBusyState(false);
+        }
+    });
 }
 
 listen('game-started', (event) => {
@@ -167,7 +192,12 @@ export function openInstanceDetail(profileId, isLocal = false, localProfile = nu
     logsOutput.scrollTop = logsOutput.scrollHeight;
 
     const hasPackwiz = !!profile?.packwiz_url;
+    
+    // Mostramos "Actualizar paquetes" solo si tiene URL de packwiz configurada
     if (btnUpdate) btnUpdate.classList.toggle('hidden', !hasPackwiz);
+    
+    // Mostramos "Buscar cambios en BD" SIEMPRE QUE NO SEA una instancia de .minecraft local
+    if (btnCheckDb) btnCheckDb.classList.toggle('hidden', isLocal);
 
     updatePlayKillButton(profileId);
 
@@ -196,24 +226,45 @@ export function setInstanceRunning(profileId, isRunning) {
 async function runSyncForCurrentInstance({ silent = false } = {}) {
     const profileId = currentDetailProfileId;
     if (!profileId) return;
+    
+    const profile = getCurrentProfile();
+    if (!profile) return;
 
     setBusyState(true);
-    if (!silent) statusText.innerText = "Sincronizando mods...";
+    if (!silent) statusText.innerText = "Comprobando actualizaciones...";
 
     try {
-        await sincronizarModpack(profileId, { silent: true });
+        let changed = false;
+
+        // Si es oficial, revisa primero cliente/java
+        if (profile.is_official) {
+            if (!silent) statusText.innerText = "Comprobando cliente en la base de datos...";
+            try { changed = await syncSingleProfileFromDatabase(profileId); } catch(e){}
+        }
+
+        // Luego sincroniza mods si tiene packwiz
+        if (profile.packwiz_url) {
+            if (!silent) statusText.innerText = "Sincronizando mods...";
+            await sincronizarModpack(profileId, { silent: true });
+        }
+
         if (currentDetailProfileId === profileId) {
-            statusText.innerText = "Mods actualizados.";
+            if (changed) {
+                statusText.innerText = "Instancia y mods actualizados a la última versión.";
+                drawProfiles();
+            } else {
+                statusText.innerText = "Todo está actualizado y listo.";
+            }
         }
     } catch (e) {
-        console.warn('No se pudo sincronizar el modpack:', e);
+        console.warn('Error al actualizar la instancia:', e);
         if (currentDetailProfileId === profileId) {
-            statusText.innerText = "Error al actualizar mods.";
+            statusText.innerText = `Error al actualizar: ${e.message || e}`;
         }
     } finally {
         setBusyState(false);
         if (currentDetailProfileId === profileId) {
-            updatePlayKillButton(profileId);
+            setTimeout(() => updatePlayKillButton(profileId), 3000);
         }
     }
 }
@@ -221,9 +272,10 @@ async function runSyncForCurrentInstance({ silent = false } = {}) {
 function setBusyState(busy) {
     if (btnPlayKill) btnPlayKill.disabled = busy;
     if (btnDelete) btnDelete.disabled = busy;
+    if (btnCheckDb) btnCheckDb.disabled = busy;
     if (btnUpdate) {
         btnUpdate.disabled = busy;
-        btnUpdate.innerText = busy ? '⏳ Actualizando...' : '🔄 Actualizar todo';
+        btnUpdate.innerText = busy ? '⏳ Actualizando...' : '🔄 Actualizar paquetes';
     }
 }
 
