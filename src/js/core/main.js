@@ -1,19 +1,20 @@
 import { fetchProfiles, loadSession, syncInstalledProfilesFromDatabase } from './state.js';
-import { drawProfiles, updateStatus, initSettingsPanel, initInstanceEventListeners } from './ui.js';
-import { iniciarJuego, abrirCarpetaInstancia } from './launcher.js';
-import { openLoginModal, closeLoginModal, handleOfflineLogin, handleMicrosoftLogin, restoreSession } from './auth.js';
-import { initInstanceDetail, openInstanceDetail } from './instanceDetail.js';
-import { initCreator } from './creator.js';
-import { loadExploreModpacks, initExplore } from './explore.js';
-import { initDialogs } from './dialogs.js';
-import { initConsole } from './console.js';
+import { updater, tauriProcess } from './tauri.js';
+import { drawProfiles, updateStatus, initSettingsPanel, initInstanceEventListeners } from '../ui/ui.js';
+import { initDialogs } from '../ui/dialogs.js';
+import { initConsole } from '../ui/console.js';
+import { iniciarJuego, abrirCarpetaInstancia } from '../features/instances/launcher.js';
+import { initInstanceDetail, openInstanceDetail } from '../features/instances/instanceDetail.js';
+import { initCreator } from '../features/instances/creator.js';
+import { openLoginModal, closeLoginModal, handleOfflineLogin, handleMicrosoftLogin, restoreSession } from '../features/auth/auth.js';
+import { loadExploreModpacks, initExplore } from '../features/explore/explore.js';
 
 // Ya no necesitamos appWindow.onResized, el CSS se encarga de todo nativamente.
 
 async function checkForUpdates() {
     try {
-        const { check } = window.__TAURI__.updater;
-        const { relaunch } = window.__TAURI__.process;
+        const { check } = updater;
+        const { relaunch } = tauriProcess;
         const update = await check();
         if (update) {
             updateStatus(`Actualización ${update.version} disponible...`);

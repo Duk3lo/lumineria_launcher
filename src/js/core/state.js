@@ -1,4 +1,4 @@
-const { invoke } = window.__TAURI__.core;
+import { invoke } from './tauri.js';
 
 export let PROFILES = {};
 export let selectedProfileId = null;

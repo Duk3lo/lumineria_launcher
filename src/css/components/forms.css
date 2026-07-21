@@ -1,0 +1,47 @@
+.settings-panel label {
+    display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; color: var(--text-dim);
+}
+.settings-panel input {
+    background: rgba(255,255,255,0.05); border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
+    padding: 10px 12px; color: var(--text); font-size: 0.95rem;
+}
+.settings-panel input:focus { outline: none; border-color: var(--primary-glow); box-shadow: 0 0 0 3px rgba(192,132,252,0.15); }
+
+/* Versiones de Minecraft sin build disponible para el cargador elegido */
+#new-instance-version option:disabled {
+    color: #52525b;
+    font-style: italic;
+}
+
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.04);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M0 0L5 6L10 0Z' fill='%23c084fc'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-sm);
+    padding: 10px 36px 10px 14px;
+    color: var(--text);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+select:hover { border-color: rgba(192, 132, 252, 0.4); }
+select:focus {
+    outline: none;
+    border-color: var(--primary-glow);
+    box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.15);
+}
+
+select option {
+    background-color: #14101f;
+    color: var(--text);
+}
+select option:disabled {
+    color: #52525b;
+}

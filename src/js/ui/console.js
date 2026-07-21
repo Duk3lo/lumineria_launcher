@@ -1,5 +1,4 @@
-// console.js
-const { listen } = window.__TAURI__.event;
+import { listen } from '../core/tauri.js';
 
 const panel = document.getElementById('console-panel');
 const output = document.getElementById('console-output');

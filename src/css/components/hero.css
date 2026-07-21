@@ -1,0 +1,11 @@
+.hero {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.hero h1 {
+    font-size: 56px; font-weight: 800; background: linear-gradient(to right, #fff, var(--primary-glow), var(--secondary-glow));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+.hero p { font-size: 1.1rem; color: #cbd5e1; max-width: 500px; margin-top: 10px; }

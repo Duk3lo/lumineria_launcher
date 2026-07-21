@@ -1,0 +1,20 @@
+.action-panel {
+    background: var(--glass-bg); backdrop-filter: blur(16px); padding: 24px 30px; border-radius: var(--radius-lg);
+    border: 1px solid var(--border-soft); width: 100%; max-width: 100%;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 16px;
+    margin-top: auto;
+}
+
+#status-text {
+    max-height: 160px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    text-align: left;
+    font-family: 'Consolas', monospace;
+    font-size: 0.75rem;
+    line-height: 1.4;
+}
+
+.panel-title { font-size: 1rem; letter-spacing: 1px; color: var(--text); opacity: 0.85; }
+.hint-text { font-size: 0.8rem; color: var(--text-dim); }

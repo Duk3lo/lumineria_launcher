@@ -1,11 +1,10 @@
+use crate::net::{self, HideConsoleExt};
 use anyhow::Result;
 use futures_util::StreamExt;
 use std::path::{Path, PathBuf};
+use std::process::Command as StdCommand;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-use std::process::Command as StdCommand;
-
-use crate::net;
 
 #[tauri::command]
 pub async fn verify_and_get_java(version: u8, base_dir: String) -> Result<String, String> {
@@ -17,7 +16,9 @@ pub async fn verify_and_get_java(version: u8, base_dir: String) -> Result<String
 
 #[tauri::command]
 pub async fn download_java_command(version: u8, base_dir: String) -> Result<String, String> {
-    download_jre(version, &base_dir).await.map_err(|e| format!("{:?}", e))?;
+    download_jre(version, &base_dir)
+        .await
+        .map_err(|e| format!("{:?}", e))?;
     Ok("Java descargado y extraído".to_string())
 }
 
@@ -27,7 +28,9 @@ pub enum JavaStatus {
 }
 
 pub fn check_local_java(required_version: u8, base_dir: &str) -> JavaStatus {
-    let runtime_dir = PathBuf::from(base_dir).join("runtimes").join(format!("jre-{}", required_version));
+    let runtime_dir = PathBuf::from(base_dir)
+        .join("runtimes")
+        .join(format!("jre-{}", required_version));
     if let Some(java_path) = find_executable(&runtime_dir) {
         if detect_java_major_version(&java_path.to_string_lossy()) == Some(required_version) {
             return JavaStatus::Ready(java_path);
@@ -43,13 +46,7 @@ pub fn check_local_java(required_version: u8, base_dir: &str) -> JavaStatus {
 fn detect_java_major_version(java_bin: &str) -> Option<u8> {
     let mut cmd = StdCommand::new(java_bin);
     cmd.arg("-version");
-
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        cmd.creation_flags(CREATE_NO_WINDOW);
-    }
+    cmd.hide_console();
 
     let output = cmd.output().ok()?;
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -64,14 +61,22 @@ fn detect_java_major_version(java_bin: &str) -> Option<u8> {
 }
 
 fn find_executable(base_dir: &Path) -> Option<PathBuf> {
-    let target_name = if cfg!(target_os = "windows") { "java.exe" } else { "java" };
-    if !base_dir.exists() { return None; }
+    let target_name = if cfg!(target_os = "windows") {
+        "java.exe"
+    } else {
+        "java"
+    };
+    if !base_dir.exists() {
+        return None;
+    }
     if let Ok(entries) = std::fs::read_dir(base_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
                 let bin_path = path.join("bin").join(target_name);
-                if bin_path.exists() { return Some(bin_path); }
+                if bin_path.exists() {
+                    return Some(bin_path);
+                }
             }
         }
     }
@@ -89,12 +94,19 @@ fn adoptium_os() -> &'static str {
 }
 
 fn archive_extension() -> &'static str {
-    if cfg!(target_os = "windows") { "zip" } else { "tar.gz" }
+    if cfg!(target_os = "windows") {
+        "zip"
+    } else {
+        "tar.gz"
+    }
 }
 
 async fn download_jre(version: u8, base_dir: &str) -> Result<()> {
     let os = adoptium_os();
-    let url = format!("https://api.adoptium.net/v3/binary/latest/{}/ga/{}/x64/jre/hotspot/normal/eclipse", version, os);
+    let url = format!(
+        "https://api.adoptium.net/v3/binary/latest/{}/ga/{}/x64/jre/hotspot/normal/eclipse",
+        version, os
+    );
 
     let runtimes_dir = PathBuf::from(base_dir).join("runtimes");
     tokio::fs::create_dir_all(&runtimes_dir).await?;
@@ -148,7 +160,9 @@ async fn extract_zip(zip_path: &str, dest_dir: &str) -> Result<()> {
             if (*file.name()).ends_with('/') {
                 std::fs::create_dir_all(&outpath)?;
             } else {
-                if let Some(p) = outpath.parent() { std::fs::create_dir_all(p)?; }
+                if let Some(p) = outpath.parent() {
+                    std::fs::create_dir_all(p)?;
+                }
                 let mut outfile = std::fs::File::create(&outpath)?;
                 std::io::copy(&mut file, &mut outfile)?;
 
@@ -164,7 +178,8 @@ async fn extract_zip(zip_path: &str, dest_dir: &str) -> Result<()> {
             }
         }
         Ok(())
-    }).await??;
+    })
+    .await??;
     Ok(())
 }
 
@@ -179,6 +194,7 @@ async fn extract_tar_gz(archive_path: &str, dest_dir: &str) -> Result<()> {
         let mut archive = tar::Archive::new(gz);
         archive.unpack(&dest_dir)?;
         Ok(())
-    }).await??;
+    })
+    .await??;
     Ok(())
 }

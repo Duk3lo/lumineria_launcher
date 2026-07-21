@@ -14,6 +14,7 @@ use crate::games::minecraft::arguments::extract_argument_list;
 use crate::games::minecraft::assets::ensure_assets;
 use crate::games::minecraft::classpath::{build_classpath, ensure_libraries};
 use crate::games::minecraft::version::load_merged_version;
+use crate::net::HideConsoleExt;
 use crate::presence::{register_instance, unregister_instance, RunningInstance};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -160,14 +161,7 @@ pub async fn launch_minecraft(
 
     command.stdout(Stdio::piped());
     command.stderr(Stdio::piped());
-    
-
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        command.creation_flags(CREATE_NO_WINDOW);
-    }
+    command.hide_console();
 
     let mut child = command
         .spawn()

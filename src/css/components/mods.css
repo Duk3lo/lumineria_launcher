@@ -1,0 +1,50 @@
+.mods-toolbar { display: flex; align-items: center; gap: 12px; }
+.mods-toolbar input {
+    flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--border-soft);
+    border-radius: var(--radius-sm); padding: 10px 12px; color: var(--text); font-size: 0.9rem;
+}
+.mods-count-label { font-size: 0.78rem; color: var(--text-dim); white-space: nowrap; }
+
+.mods-list {
+    display: flex; flex-direction: column; gap: 6px; overflow-y: auto; max-height: 50vh;
+    padding-right: 4px;
+}
+.mods-list::-webkit-scrollbar { width: 6px; }
+.mods-list::-webkit-scrollbar-thumb { background: var(--primary-glow); border-radius: 10px; }
+
+.mods-empty-state { color: var(--text-dim); font-size: 0.85rem; padding: 20px 0; text-align: center; }
+
+.mod-row {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+    background: rgba(255,255,255,0.03); border: 1px solid transparent; border-radius: 10px;
+    transition: 0.2s ease;
+}
+.mod-row:hover { background: rgba(255,255,255,0.06); border-color: var(--border-soft); }
+.mod-row.disabled-row { opacity: 0.55; }
+
+.mod-icon {
+    width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--primary-glow), var(--secondary-glow));
+    display: flex; align-items: center; justify-content: center; font-size: 0.9rem;
+}
+.mod-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mod-name { font-size: 0.88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mod-meta { font-size: 0.72rem; color: var(--text-dim); }
+
+/* Toggle switch: se usa tanto para mods como para paquetes de recursos */
+.toggle-switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle-slider {
+    position: absolute; inset: 0; background: rgba(255,255,255,0.15); border-radius: 20px;
+    cursor: pointer; transition: 0.25s ease;
+}
+.toggle-slider::before {
+    content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px;
+    background: white; border-radius: 50%; transition: 0.25s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.toggle-switch input:checked + .toggle-slider {
+    background: linear-gradient(45deg, var(--secondary-glow), var(--accent));
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+}
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+.toggle-switch input:disabled + .toggle-slider { opacity: 0.4; cursor: default; }

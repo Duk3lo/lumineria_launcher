@@ -1,0 +1,13 @@
+.primary-btn, .secondary-btn {
+    border: none; border-radius: var(--radius-sm); padding: 12px 20px; font-weight: 700;
+    letter-spacing: 1px; cursor: pointer; transition: 0.25s ease; font-size: 0.9rem;
+}
+.primary-btn {
+    background: linear-gradient(45deg, #7c3aed, #db2777); color: white;
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.35);
+}
+.primary-btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+.secondary-btn {
+    background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border-soft);
+}
+.secondary-btn:hover { background: rgba(255,255,255,0.12); border-color: var(--secondary-glow); }

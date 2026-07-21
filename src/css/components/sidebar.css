@@ -1,0 +1,25 @@
+.logo {
+    font-size: 28px; font-weight: 900; letter-spacing: 4px; color: var(--text);
+    text-shadow: 0 0 15px var(--primary-glow); margin-bottom: 50px; text-align: center;
+}
+
+.game-list { list-style: none; }
+.game-list li {
+    padding: 15px; margin-bottom: 15px; border-radius: var(--radius-sm); cursor: pointer;
+    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid transparent; color: rgba(255, 255, 255, 0.6);
+}
+.game-list li:hover { background: rgba(255, 255, 255, 0.05); color: white; }
+.game-list li.active {
+    background: linear-gradient(45deg, rgba(192, 132, 252, 0.3), rgba(56, 189, 248, 0.3));
+    border: 1px solid var(--primary-glow); color: white; box-shadow: 0 0 20px rgba(192, 132, 252, 0.2);
+}
+
+.account-btn {
+    width: 100%; display: flex; align-items: center; gap: 10px;
+    background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-soft);
+    color: var(--text); padding: 12px 14px; border-radius: var(--radius-sm);
+    font-size: 0.9rem; transition: 0.25s ease;
+}
+.account-btn:hover { background: rgba(255, 255, 255, 0.08); border-color: var(--primary-glow); }
+.account-avatar { font-size: 1.1rem; }
+#account-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

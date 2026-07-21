@@ -1,8 +1,7 @@
-import { PROFILES, saveProfileToDisk, getBaseDirectory } from './state.js';
-import { drawProfiles, updateStatus } from './ui.js';
-
-const { invoke } = window.__TAURI__.core;
-import { showAlert } from './dialogs.js';
+import { PROFILES, saveProfileToDisk, getBaseDirectory } from '../../core/state.js';
+import { invoke } from '../../core/tauri.js';
+import { drawProfiles, updateStatus } from '../../ui/ui.js';
+import { showAlert } from '../../ui/dialogs.js';
 
 export function initExplore() {
     document.getElementById('btn-refresh-explore')?.addEventListener('click', () => {
@@ -65,7 +64,7 @@ export async function loadExploreModpacks() {
                     </div>
                     <div class="profile-actions" style="margin-top: auto; padding-top: 15px;">
                         <button class="primary-btn btn-install-modpack" style="width: 100%; border-radius: 8px; padding: 10px;" ${isInstalled ? 'disabled' : ''}>
-                            ${isInstalled ? '✓ Instalado' : '⬇ Instalar Cliente'}
+${isInstalled ? '✓ Instalado' : '⬇ Instalar Cliente'}
                         </button>
                     </div>
                 </div>

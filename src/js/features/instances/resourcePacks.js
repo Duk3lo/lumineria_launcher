@@ -1,5 +1,5 @@
-import { getInstanceDir } from './state.js';
-const { invoke } = window.__TAURI__.core;
+import { getInstanceDir } from '../../core/state.js';
+import { invoke } from '../../core/tauri.js';
 
 const rpListEl = document.getElementById('rp-list');
 const rpCountLabel = document.getElementById('rp-count-label');
@@ -60,15 +60,13 @@ async function handleRPToggle(rp, checkboxEl) {
         const newFilename = await invoke('toggle_resource_pack', { instanceDir, filename: rp.filename, enable: checkboxEl.checked });
         rp.filename = newFilename;
         rp.enabled = checkboxEl.checked;
-        
         const row = checkboxEl.closest('.mod-row');
         row.classList.toggle('disabled-row', !rp.enabled);
         row.querySelector('.mod-meta').innerText = `${rp.sizeKb} KB · ${rp.enabled ? 'Activo' : 'Desactivado'}`;
-        
         const activeCount = currentRPs.filter(r => r.enabled).length;
         rpCountLabel.innerText = `${activeCount} / ${currentRPs.length} activos`;
     } catch (e) {
-        checkboxEl.checked = !checkboxEl.checked; 
+        checkboxEl.checked = !checkboxEl.checked;
     } finally {
         checkboxEl.disabled = false;
     }

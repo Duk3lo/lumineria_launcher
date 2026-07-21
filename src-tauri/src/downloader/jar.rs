@@ -3,9 +3,7 @@ use std::process::Stdio;
 use tauri::Emitter;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
-
-#[cfg(target_os = "windows")]
-use std::os::windows::process::CommandExt;
+use crate::net::HideConsoleExt;
 
 #[tauri::command]
 pub async fn execute_jar(
@@ -25,12 +23,7 @@ pub async fn execute_jar(
         command.arg(arg);
     }
     command.stdout(Stdio::piped()).stderr(Stdio::piped());
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        command.creation_flags(CREATE_NO_WINDOW);
-    }
+    command.hide_console();
 
     let mut child = command
         .spawn()

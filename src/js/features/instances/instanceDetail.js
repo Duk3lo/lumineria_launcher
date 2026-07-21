@@ -1,12 +1,10 @@
-import { PROFILES, deleteProfileFromDisk, syncSingleProfileFromDatabase } from './state.js';
+import { PROFILES, deleteProfileFromDisk, syncSingleProfileFromDatabase } from '../../core/state.js';
+import { invoke, listen } from '../../core/tauri.js';
 import { iniciarJuego, abrirCarpetaInstancia, sincronizarModpack, isSyncing } from './launcher.js';
 import { renderModsForInstance } from './mods.js';
 import { renderResourcePacksForInstance } from './resourcePacks.js';
-import { drawProfiles } from './ui.js';
-import { showAlert, showConfirm } from './dialogs.js';
-
-const { invoke } = window.__TAURI__.core;
-const { listen } = window.__TAURI__.event;
+import { drawProfiles } from '../../ui/ui.js';
+import { showAlert, showConfirm } from '../../ui/dialogs.js';
 
 export let currentDetailProfileId = null;
 let currentDetailIsLocal = false;
@@ -192,10 +190,10 @@ export function openInstanceDetail(profileId, isLocal = false, localProfile = nu
     logsOutput.scrollTop = logsOutput.scrollHeight;
 
     const hasPackwiz = !!profile?.packwiz_url;
-    
+
     // Mostramos "Actualizar paquetes" solo si tiene URL de packwiz configurada
     if (btnUpdate) btnUpdate.classList.toggle('hidden', !hasPackwiz);
-    
+
     // Mostramos "Buscar cambios en BD" SIEMPRE QUE NO SEA una instancia de .minecraft local
     if (btnCheckDb) btnCheckDb.classList.toggle('hidden', isLocal);
 
@@ -226,7 +224,7 @@ export function setInstanceRunning(profileId, isRunning) {
 async function runSyncForCurrentInstance({ silent = false } = {}) {
     const profileId = currentDetailProfileId;
     if (!profileId) return;
-    
+
     const profile = getCurrentProfile();
     if (!profile) return;
 
@@ -239,7 +237,7 @@ async function runSyncForCurrentInstance({ silent = false } = {}) {
         // Si es oficial, revisa primero cliente/java
         if (profile.is_official) {
             if (!silent) statusText.innerText = "Comprobando cliente en la base de datos...";
-            try { changed = await syncSingleProfileFromDatabase(profileId); } catch(e){}
+            try { changed = await syncSingleProfileFromDatabase(profileId); } catch (e) { }
         }
 
         // Luego sincroniza mods si tiene packwiz

@@ -25,3 +25,41 @@ pub fn download_client() -> &'static reqwest::Client {
             .expect("no se pudo construir el cliente de descargas")
     })
 }
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+pub trait HideConsoleExt {
+    fn hide_console(&mut self) -> &mut Self;
+}
+
+#[cfg(target_os = "windows")]
+impl HideConsoleExt for std::process::Command {
+    fn hide_console(&mut self) -> &mut Self {
+        use std::os::windows::process::CommandExt;
+        self.creation_flags(CREATE_NO_WINDOW);
+        self
+    }
+}
+
+#[cfg(target_os = "windows")]
+impl HideConsoleExt for tokio::process::Command {
+    fn hide_console(&mut self) -> &mut Self {
+        self.creation_flags(CREATE_NO_WINDOW);
+        self
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+impl HideConsoleExt for std::process::Command {
+    fn hide_console(&mut self) -> &mut Self {
+        self
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+impl HideConsoleExt for tokio::process::Command {
+    fn hide_console(&mut self) -> &mut Self {
+        self
+    }
+}

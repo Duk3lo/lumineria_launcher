@@ -1,5 +1,5 @@
-import { PROFILES, listMods, toggleMod } from './state.js';
-import { refreshCardStatus } from './ui.js';
+import { listMods, toggleMod } from '../../core/state.js';
+import { refreshCardStatus } from '../../ui/ui.js';
 
 const modsListEl = document.getElementById('mods-list');
 const modsCountLabel = document.getElementById('mods-count-label');
@@ -74,7 +74,7 @@ async function handleToggle(mod, checkboxEl) {
 
         refreshCardStatus(currentProfileId);
     } catch (e) {
-        checkboxEl.checked = !checkboxEl.checked; 
+        checkboxEl.checked = !checkboxEl.checked;
         console.error('No se pudo cambiar el estado del mod:', e);
     } finally {
         checkboxEl.disabled = false;

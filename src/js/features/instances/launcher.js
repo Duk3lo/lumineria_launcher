@@ -1,10 +1,7 @@
-import { PROFILES, getBaseDirectory, getInstanceDir, AUTH_SESSION, SETTINGS, resetInstanceLibraries } from './state.js';
-import { updateStatus, updateCardProgress, setCardPlayState, refreshCardStatus } from './ui.js';
+import { PROFILES, getBaseDirectory, getInstanceDir, AUTH_SESSION, SETTINGS, resetInstanceLibraries } from '../../core/state.js';
+import { invoke, listen } from '../../core/tauri.js';
+import { updateStatus, updateCardProgress, setCardPlayState, refreshCardStatus } from '../../ui/ui.js';
 import { setInstanceRunning, setInstancePreparing } from './instanceDetail.js';
-
-const { invoke } = window.__TAURI__.core;
-const { listen } = window.__TAURI__.event;
-
 
 const syncingInstances = new Set();
 

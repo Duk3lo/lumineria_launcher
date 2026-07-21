@@ -1,0 +1,78 @@
+.loader-picker { position: relative; width: 100%; }
+
+.loader-picker-trigger {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(192, 132, 252, 0.25);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: #e5e5e5;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.loader-picker-trigger:hover { border-color: var(--primary-glow, #c084fc); }
+.loader-picker.open .loader-picker-trigger {
+    border-color: var(--primary-glow, #c084fc);
+    box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.15);
+}
+.loader-picker-trigger:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.loader-picker-chevron {
+    color: var(--primary-glow, #c084fc);
+    font-size: 0.75rem;
+    transition: transform 0.15s ease;
+}
+.loader-picker.open .loader-picker-chevron { transform: rotate(180deg); }
+
+.loader-picker-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    max-height: 220px;
+    overflow-y: auto;
+    background: #14101f;
+    border: 1px solid rgba(192, 132, 252, 0.25);
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    z-index: 50;
+    padding: 6px;
+}
+.loader-picker-menu.hidden { display: none; }
+
+.loader-picker-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: #d4d4d8;
+}
+.loader-picker-item:hover { background: rgba(192, 132, 252, 0.12); }
+.loader-picker-item.selected { background: rgba(192, 132, 252, 0.18); color: #fff; }
+
+.loader-picker-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+.loader-picker-badge.latest { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
+.loader-picker-badge.beta { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+
+.loader-picker-empty, .loader-picker-loading {
+    padding: 14px 10px;
+    text-align: center;
+    color: #71717a;
+    font-size: 0.85rem;
+}

@@ -1,8 +1,7 @@
-import { PROFILES, saveProfileToDisk } from './state.js';
-import { updateStatus, drawProfiles } from './ui.js';
-import { showAlert } from './dialogs.js';
-
-const { invoke } = window.__TAURI__.core;
+import { saveProfileToDisk } from '../../core/state.js';
+import { invoke } from '../../core/tauri.js';
+import { updateStatus, drawProfiles } from '../../ui/ui.js';
+import { showAlert } from '../../ui/dialogs.js';
 
 const modal = document.getElementById('new-instance-modal');
 const typeSelect = document.getElementById('new-instance-type');

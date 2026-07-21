@@ -7,15 +7,14 @@ import {
     getSystemRamMb,
     getInstanceStatus,
     deleteProfileFromDisk
-} from './state.js';
+} from '../core/state.js';
+import { invoke, listen } from '../core/tauri.js';
 
 import { showAlert, showConfirm } from './dialogs.js';
 
-const { invoke } = window.__TAURI__.core;
 const statusText = document.getElementById('status-text');
 const profilesGrid = document.getElementById('profiles-grid');
 
-const { listen } = window.__TAURI__.event;
 const runningInstances = new Set();
 const cardProgressState = new Map();
 
