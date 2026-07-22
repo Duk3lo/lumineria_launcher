@@ -8,6 +8,7 @@ mod java;
 mod net;
 mod presence;
 mod settings;
+mod config;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -66,6 +67,7 @@ async fn kill_instance(profile_id: String, state: tauri::State<'_, AppState>) ->
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    dotenvy::dotenv().ok();
     tauri::Builder::default()
         .plugin(prevent_default())
         .setup(|app| {

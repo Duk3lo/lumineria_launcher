@@ -69,8 +69,11 @@ export async function sincronizarModpack(profileId, { silent = false } = {}) {
 export function getRecommendedJava(mcVersion) {
     if (!mcVersion) return 17;
     const parts = mcVersion.split('.');
-
     if (parts[0] !== '1') {
+        const year = parseInt(parts[0], 10);
+        if (!isNaN(year) && year >= 26) {
+            return 25;
+        }
         return 21;
     }
 

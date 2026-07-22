@@ -52,4 +52,6 @@ sysinfo = "0.32"
 # --- PARSEO DE TOML (Versión corregida a estable para Rust) ---
 toml = "0.8"
 discord-rich-presence = "1"
-craftping = { version = "0.7", default-features = false, features = ["async-tokio"] }
+craftping = { version = "0.7.0", default-features = false, features = ["async-tokio"] }
+
+dotenvy = "0.15.7"

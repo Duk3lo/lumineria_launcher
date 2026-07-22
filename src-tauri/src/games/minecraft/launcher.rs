@@ -32,7 +32,10 @@ pub struct LaunchOptions {
 }
 
 #[tauri::command]
-pub async fn cancel_preparation(profile_id: String, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn cancel_preparation(
+    profile_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     let flags = state.preparing_cancel.lock().await;
     if let Some(flag) = flags.get(&profile_id) {
         flag.store(true, Ordering::SeqCst);
@@ -87,7 +90,11 @@ pub async fn launch_minecraft(
         .as_str()
         .ok_or("mainClass no encontrado")?
         .to_string();
-    let classpath_separator = if cfg!(target_os = "windows") { ";" } else { ":" };
+    let classpath_separator = if cfg!(target_os = "windows") {
+        ";"
+    } else {
+        ":"
+    };
 
     let mut vars = HashMap::new();
     vars.insert("auth_player_name".into(), auth.username.clone());
@@ -120,13 +127,19 @@ pub async fn launch_minecraft(
     vars.insert("launcher_name".into(), "LumineriaLauncher".into());
     vars.insert("launcher_version".into(), "1.0.0".into());
     vars.insert("classpath".into(), classpath);
-    vars.insert("classpath_separator".into(), classpath_separator.to_string());
+    vars.insert(
+        "classpath_separator".into(),
+        classpath_separator.to_string(),
+    );
     vars.insert(
         "library_directory".into(),
         instance_dir.join("libraries").to_string_lossy().to_string(),
     );
 
-    let jvm_args = extract_argument_list(&version_json["arguments"]["jvm"], &vars);
+    let jvm_args: Vec<String> = extract_argument_list(&version_json["arguments"]["jvm"], &vars)
+        .into_iter()
+        .filter(|arg| !arg.starts_with("--sun-misc-unsafe-memory-access"))
+        .collect();
     let game_args = extract_argument_list(&version_json["arguments"]["game"], &vars);
 
     bail_if_cancelled!();

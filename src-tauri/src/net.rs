@@ -1,16 +1,24 @@
 use std::sync::OnceLock;
-use std::time::Duration;
+use crate::config::AppConfig;
 
-pub const DEFAULT_MODPACKS_API_URL: &str = "http://localhost:8000/modpacks.json";
-
+static CONFIG: OnceLock<AppConfig> = OnceLock::new();
 static HTTP: OnceLock<reqwest::Client> = OnceLock::new();
 static DOWNLOAD: OnceLock<reqwest::Client> = OnceLock::new();
 
+fn config() -> &'static AppConfig {
+    CONFIG.get_or_init(AppConfig::from_env)
+}
+
+pub fn modpacks_api_url() -> &'static str {
+    &config().modpacks_api_url
+}
+
 pub fn http_client() -> &'static reqwest::Client {
     HTTP.get_or_init(|| {
+        let cfg = config();
         reqwest::Client::builder()
-            .connect_timeout(Duration::from_secs(5))
-            .timeout(Duration::from_secs(15))
+            .connect_timeout(cfg.connect_timeout)
+            .timeout(cfg.http_timeout)
             .build()
             .expect("no se pudo construir el cliente HTTP")
     })
@@ -18,9 +26,10 @@ pub fn http_client() -> &'static reqwest::Client {
 
 pub fn download_client() -> &'static reqwest::Client {
     DOWNLOAD.get_or_init(|| {
+        let cfg = config();
         reqwest::Client::builder()
-            .connect_timeout(Duration::from_secs(5))
-            .timeout(Duration::from_secs(120))
+            .connect_timeout(cfg.connect_timeout)
+            .timeout(cfg.download_timeout)
             .build()
             .expect("no se pudo construir el cliente de descargas")
     })
