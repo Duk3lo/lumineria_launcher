@@ -5,7 +5,7 @@ use std::process::Command as StdCommand;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
-use crate::net::{self, HideConsoleExt};
+use crate::net::HideConsoleExt;
 
 #[tauri::command]
 pub async fn verify_and_get_java(version: u8, base_dir: String) -> Result<String, String> {
@@ -62,7 +62,11 @@ fn detect_java_major_version(java_bin: &str) -> Option<u8> {
 }
 
 fn find_executable(base_dir: &Path) -> Option<PathBuf> {
-    let target_name = if cfg!(target_os = "windows") { "java.exe" } else { "java" };
+    let target_name = if cfg!(target_os = "windows") {
+        "java.exe"
+    } else {
+        "java"
+    };
     if !base_dir.exists() {
         return None;
     }
@@ -101,7 +105,7 @@ fn archive_extension() -> &'static str {
 async fn download_jre(version: u8, base_dir: &str) -> Result<()> {
     let os = adoptium_os();
     let url = format!(
-        "https://api.adoptium.net/v3/binary/latest/{}/ga/{}/x64/jre/hotspot/normal/eclipse",
+        "https://api.adoptium.net/v3/binary/latest/{}/ga/{}/x64/jdk/hotspot/normal/eclipse",
         version, os
     );
 
@@ -111,13 +115,19 @@ async fn download_jre(version: u8, base_dir: &str) -> Result<()> {
     let ext = archive_extension();
     let archive_path = runtimes_dir.join(format!("runtime_{}.{}", version, ext));
     let dest_dir = runtimes_dir.join(format!("jre-{}", version));
+
     if dest_dir.exists() {
         tokio::fs::remove_dir_all(&dest_dir).await.ok();
     }
 
-    let response = net::download_client().get(&url).send().await?;
+    let response = crate::net::download_client().get(&url).send().await?;
     if !response.status().is_success() {
-        anyhow::bail!("Adoptium respondió {} para {}", response.status(), url);
+        anyhow::bail!(
+            "Adoptium respondió {} para {}. URL intentada: {}",
+            response.status(),
+            version,
+            url
+        );
     }
 
     let mut file = File::create(&archive_path).await?;

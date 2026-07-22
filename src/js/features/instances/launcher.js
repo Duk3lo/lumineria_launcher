@@ -17,6 +17,17 @@ export async function sincronizarModpack(profileId, { silent = false } = {}) {
     syncingInstances.add(profileId);
     document.dispatchEvent(new CustomEvent('lumineria:sync-state-changed', { detail: { id: profileId, syncing: true } }));
     try {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            await fetch(profile.packwiz_url, { signal: controller.signal });
+            clearTimeout(timeoutId);
+        } catch {
+            const err = new Error('Sin conexión al servidor de mods.');
+            err.isConnectionError = true;
+            throw err;
+        }
+
         const baseDir = await getBaseDirectory();
         const instanceDir = await getInstanceDir(profileId);
         const installersDir = `${baseDir}/installers`;
@@ -55,6 +66,26 @@ export async function sincronizarModpack(profileId, { silent = false } = {}) {
     }
 }
 
+export function getRecommendedJava(mcVersion) {
+    if (!mcVersion) return 17;
+    const parts = mcVersion.split('.');
+
+    if (parts[0] !== '1') {
+        return 21;
+    }
+
+    const minor = parseInt(parts[1] || "0");
+    const patch = parseInt(parts[2] || "0");
+    if (minor <= 16) return 8;
+    if (minor === 17) return 16;
+    if (minor >= 18 && minor <= 20) {
+        if (minor === 20 && patch >= 5) return 21;
+        return 17;
+    }
+    if (minor >= 21) return 21;
+    return 17;
+}
+
 export async function iniciarJuego(profileId, force = false, isLocal = false, localProfileData = null) {
     const profile = isLocal ? localProfileData : PROFILES[profileId];
     if (!profileId || !profile) return;
@@ -67,6 +98,10 @@ export async function iniciarJuego(profileId, force = false, isLocal = false, lo
 
     setCardPlayState(profileId, true);
     updateCardProgress(profileId, 5, 'Preparando...');
+
+    if (!profile.java_version) {
+        profile.java_version = getRecommendedJava(profile.mc_version);
+    }
 
     const baseDir = await getBaseDirectory();
     const instanceDir = isLocal

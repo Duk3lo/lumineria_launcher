@@ -84,15 +84,17 @@ function buildProfileCard(id, profile, isVanillaLocal) {
     if (isVanillaLocal) card.classList.add('local-pc-card');
     card.id = `card-${id}`;
     card.dataset.profileId = id;
-
     const imageUrl = profile.image ? profile.image : 'assets/logo.png';
+    const dotClass = isVanillaLocal ? "status-dot installed" : "status-dot";
+    const dotTitle = isVanillaLocal ? "Instalado (Local)" : "Comprobando...";
 
     card.innerHTML = `
         <div class="profile-card-bg" style="background-image:url('${imageUrl}')"></div>
         <div class="profile-content">
             <div class="profile-title-row">
                 <h3 class="profile-title">${profile.title}</h3>
-                <span class="status-dot" id="status-dot-${id}" title="Comprobando..."></span>
+                <!-- Aplicamos las variables creadas arriba -->
+                <span class="${dotClass}" id="status-dot-${id}" title="${dotTitle}"></span>
             </div>
             <div class="profile-badges">
                 <span class="badge loader">${profile.loader_name} ${isVanillaLocal ? '(PC)' : ''}</span>
@@ -230,9 +232,22 @@ async function refreshAllCardStatuses(profileKeys) {
 
 export async function refreshCardStatus(id) {
     try {
-        const status = await getInstanceStatus(id);
         const dot = document.getElementById(`status-dot-${id}`);
         const playBtn = document.getElementById(`play-btn-${id}`);
+        const card = document.getElementById(`card-${id}`);
+        const isLocal = card && card.classList.contains('local-pc-card');
+
+        if (isLocal) {
+            if (dot) {
+                dot.classList.add('installed');
+                dot.title = 'Instalado (Local)';
+            }
+            if (playBtn && !isInstanceRunning(id)) {
+                playBtn.innerText = 'Jugar';
+            }
+            return;
+        }
+        const status = await getInstanceStatus(id);
 
         if (dot) {
             dot.classList.toggle('installed', status.installed);
@@ -241,7 +256,9 @@ export async function refreshCardStatus(id) {
         if (playBtn && !isInstanceRunning(id)) {
             playBtn.innerText = status.installed ? 'Jugar' : 'Instalar';
         }
-    } catch (e) { }
+    } catch (e) {
+        console.warn(`No se pudo comprobar el estado de ${id}:`, e);
+    }
 }
 
 export function setCardPlayState(id, disabled) {

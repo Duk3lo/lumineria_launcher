@@ -1,11 +1,22 @@
-// Punto único de acceso a la API de Tauri.
-// Antes cada módulo hacía su propio "const { invoke } = window.__TAURI__.core;".
-// Centralizarlo acá evita repetirlo en 8 archivos distintos y deja un solo lugar
-// para adaptar el código si algún día cambia la forma de acceder a Tauri.
+function tauri() {
+    if (!window.__TAURI__) {
+        throw new Error('window.__TAURI__ todavía no está listo (¿se llamó antes de DOMContentLoaded?)');
+    }
+    return window.__TAURI__;
+}
 
-const TAURI = window.__TAURI__;
+export function invoke(cmd, args) {
+    return tauri().core.invoke(cmd, args);
+}
 
-export const invoke = TAURI.core.invoke;
-export const listen = TAURI.event.listen;
-export const updater = TAURI.updater;
-export const tauriProcess = TAURI.process;
+export function listen(event, handler) {
+    return tauri().event.listen(event, handler);
+}
+
+export const updater = new Proxy({}, {
+    get: (_target, prop) => tauri().updater?.[prop]
+});
+
+export const tauriProcess = new Proxy({}, {
+    get: (_target, prop) => tauri().process?.[prop]
+});

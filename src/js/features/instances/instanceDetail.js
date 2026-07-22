@@ -11,6 +11,7 @@ let currentDetailIsLocal = false;
 let currentDetailLocalProfile = null;
 
 export const INSTANCE_STATE = {};
+const autoSyncedThisSession = new Set();
 
 const viewGrid = document.getElementById('view-grid');
 const viewInstance = document.getElementById('view-instance');
@@ -107,6 +108,13 @@ export function initInstanceDetail() {
 
     let logsFlushQueued = false;
 
+    listen('game-started', (event) => {
+        const { id } = event.payload;
+        INSTANCE_STATE[id] = { isRunning: true, logs: [] };
+        if (currentDetailProfileId === id) logsOutput.textContent = '';
+        setInstanceRunning(id, true);
+    });
+
     listen('game-log', (event) => {
         const { id, line } = event.payload;
         if (!INSTANCE_STATE[id]) INSTANCE_STATE[id] = { isRunning: true, logs: [] };
@@ -141,9 +149,9 @@ export function initInstanceDetail() {
         }
     });
 
-    // BOTÓN DE COMPROBAR EN BASE DE DATOS
+
     btnCheckDb?.addEventListener('click', async () => {
-        if (!currentDetailProfileId || currentDetailIsLocal) return;
+        if (!currentDetailProfileId || !getCurrentProfile()?.is_official) return;
 
         setBusyState(true);
         statusText.innerText = "Consultando base de datos oficial...";
@@ -151,13 +159,12 @@ export function initInstanceDetail() {
         try {
             const changed = await syncSingleProfileFromDatabase(currentDetailProfileId);
             if (changed) {
-                statusText.innerText = "¡Nueva versión detectada! Cliente viejo eliminado. Dale a 'Jugar' para descargar el nuevo.";
+                statusText.innerText = "¡Actualizado! Lista para jugar con la nueva versión.";
                 drawProfiles();
             } else {
-                statusText.innerText = "La instancia ya cuenta con la última versión del servidor.";
+                statusText.innerText = "Todo actualizado: Lista para jugar.";
             }
         } catch (e) {
-            // Si la instancia fue creada a mano y no existe en la BD, te lo dirá amigablemente
             statusText.innerText = `${e.message}`;
         } finally {
             setTimeout(() => updatePlayKillButton(currentDetailProfileId), 4000);
@@ -165,13 +172,6 @@ export function initInstanceDetail() {
         }
     });
 }
-
-listen('game-started', (event) => {
-    const { id } = event.payload;
-    INSTANCE_STATE[id] = { isRunning: true, logs: [] };
-    if (currentDetailProfileId === id) logsOutput.textContent = '';
-    setInstanceRunning(id, true);
-});
 
 export function setInstancePreparing(profileId, isPreparing) {
     if (currentDetailProfileId !== profileId) return;
@@ -201,12 +201,10 @@ export function openInstanceDetail(profileId, isLocal = false, localProfile = nu
     logsOutput.scrollTop = logsOutput.scrollHeight;
 
     const hasPackwiz = !!profile?.packwiz_url;
-
-    // Mostramos "Actualizar paquetes" solo si tiene URL de packwiz configurada
     if (btnUpdate) btnUpdate.classList.toggle('hidden', !hasPackwiz);
 
-    // Mostramos "Buscar cambios en BD" SIEMPRE QUE NO SEA una instancia de .minecraft local
-    if (btnCheckDb) btnCheckDb.classList.toggle('hidden', isLocal);
+    const isOfficial = profile?.is_official === true;
+    if (btnCheckDb) btnCheckDb.classList.toggle('hidden', !isOfficial);
 
     updatePlayKillButton(profileId);
 
@@ -216,7 +214,8 @@ export function openInstanceDetail(profileId, isLocal = false, localProfile = nu
     viewGrid.classList.add('hidden');
     viewInstance.classList.remove('hidden');
 
-    if (hasPackwiz && !isSyncing(profileId)) {
+    if (hasPackwiz && !isSyncing(profileId) && !autoSyncedThisSession.has(profileId)) {
+        autoSyncedThisSession.add(profileId);
         runSyncForCurrentInstance({ silent: true });
     }
 }
@@ -245,13 +244,11 @@ async function runSyncForCurrentInstance({ silent = false } = {}) {
     try {
         let changed = false;
 
-        // Si es oficial, revisa primero cliente/java
         if (profile.is_official) {
             if (!silent) statusText.innerText = "Comprobando cliente en la base de datos...";
             try { changed = await syncSingleProfileFromDatabase(profileId); } catch (e) { }
         }
 
-        // Luego sincroniza mods si tiene packwiz
         if (profile.packwiz_url) {
             if (!silent) statusText.innerText = "Sincronizando mods...";
             await sincronizarModpack(profileId, { silent: true });
@@ -268,7 +265,11 @@ async function runSyncForCurrentInstance({ silent = false } = {}) {
     } catch (e) {
         console.warn('Error al actualizar la instancia:', e);
         if (currentDetailProfileId === profileId) {
-            statusText.innerText = `Error al actualizar: ${e.message || e}`;
+            if (e?.isConnectionError) {
+                statusText.innerText = "Sin conexión a la base de datos de mods.";
+            } else if (!silent) {
+                statusText.innerText = `Error al actualizar: ${e.message || e}`;
+            }
         }
     } finally {
         setBusyState(false);

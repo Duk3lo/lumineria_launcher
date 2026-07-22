@@ -2,6 +2,7 @@ import { saveProfileToDisk } from '../../core/state.js';
 import { invoke } from '../../core/tauri.js';
 import { updateStatus, drawProfiles } from '../../ui/ui.js';
 import { showAlert } from '../../ui/dialogs.js';
+import { getRecommendedJava } from './launcher.js';
 
 const modal = document.getElementById('new-instance-modal');
 const typeSelect = document.getElementById('new-instance-type');
@@ -61,11 +62,21 @@ async function openCreatorModal() {
     await onTypeOrVersionListChange();
 }
 
-// "1.21.10" -> "21.10" | "1.20.2" -> "20.2" | "1.21" -> "21.0"
+async function onTypeOrVersionListChange() {
+    const type = typeSelect.value;
+    await ensureLoaderCacheForType(type);
+    renderMcVersionOptions(type);
+    await populateLoaderVersions();
+}
+
 function mcVersionToNeoforgePrefix(mcVersion) {
     const parts = mcVersion.split('.');
-    if (parts.length >= 3) return `${parts[1]}.${parts[2]}`;
-    return `${parts[1]}.0`;
+    if (parts[0] === '1') {
+        if (parts.length >= 3) return `${parts[1]}.${parts[2]}`;
+        return `${parts[1]}.0`;
+    }
+    if (parts.length >= 3) return `${parts[0]}.${parts[1]}.${parts[2]}`;
+    return `${parts[0]}.${parts[1]}.0`;
 }
 
 async function ensureLoaderCacheForType(type) {
@@ -81,8 +92,7 @@ function isMcVersionSupported(type, mcVersion) {
     if (type === 'vanilla' || type === 'fabric') return true;
 
     if (type === 'forge') {
-        const minor = parseInt(mcVersion.split('.')[1]);
-        return minor >= 13 && !!(forgeVersionsCache?.[mcVersion]?.length);
+        return !!(forgeVersionsCache?.[mcVersion]?.length);
     }
     if (type === 'neoforge') {
         if (!neoforgeVersionsCache) return true;
@@ -108,22 +118,7 @@ function renderMcVersionOptions(type) {
     }
 }
 
-async function onTypeOrVersionListChange() {
-    const type = typeSelect.value;
 
-    if (type === 'forge' || type === 'neoforge') {
-        versionSelect.disabled = true;
-        try {
-            await ensureLoaderCacheForType(type);
-        } catch (e) {
-            // si falla la carga, no bloqueamos nada — se deja todo seleccionable
-        }
-        versionSelect.disabled = false;
-    }
-
-    renderMcVersionOptions(type);
-    await populateLoaderVersions();
-}
 
 // ---- Picker de versión del cargador ----
 
@@ -269,9 +264,8 @@ async function createInstance() {
             image: 'assets/logo.png',
         };
 
-        const minorVersion = parseInt(mcVersion.split('.')[1]);
         if (type !== 'vanilla') {
-            newProfile.java_version = minorVersion >= 20 ? 21 : minorVersion >= 17 ? 17 : 8;
+            newProfile.java_version = getRecommendedJava(mcVersion);
             newProfile.loader_version = selectedLoaderVersion;
         }
 
