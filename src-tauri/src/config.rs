@@ -12,7 +12,7 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            modpacks_api_url: "http://localhost:8000/modpacks.json".into(),
+            modpacks_api_url: "http://158.247.125.204/modpacks.json".into(),
             http_timeout: Duration::from_secs(15),
             download_timeout: Duration::from_secs(120),
             connect_timeout: Duration::from_secs(5),
