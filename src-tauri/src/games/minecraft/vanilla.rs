@@ -16,7 +16,6 @@ pub async fn ensure_vanilla_version(instance_dir: String, mc_version: String) ->
         .map_err(|e| e.to_string())?;
 
     let version_json: Value = if json_path.exists() {
-        // Ya la tenemos en disco: cero llamadas de red, funciona sin internet
         let raw = tokio::fs::read_to_string(&json_path)
             .await
             .map_err(|e| format!("No se pudo leer {}.json: {}", mc_version, e))?;

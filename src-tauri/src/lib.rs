@@ -73,9 +73,6 @@ pub fn run() {
         .setup(|app| {
             let discord_handle = discord::spawn_discord_worker();
             let discord_for_ipc = discord_handle.clone();
-
-            // se crea ACÁ, antes del puente IPC, para que ipc.rs y AppState
-            // compartan el mismo Vec de instancias corriendo
             let running_instances = Arc::new(Mutex::new(Vec::new()));
             let running_instances_for_ipc = running_instances.clone();
 

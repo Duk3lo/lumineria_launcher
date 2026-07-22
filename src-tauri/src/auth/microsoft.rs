@@ -3,7 +3,6 @@ use std::time::Duration;
 
 use crate::auth::models::{AuthSession, DeviceCodeInfo};
 
-// TODO: reemplazar por el Client ID real de la app registrada en Azure.
 const CLIENT_ID: &str = "TU_CLIENT_ID_DE_AZURE_AQUI";
 
 #[tauri::command]

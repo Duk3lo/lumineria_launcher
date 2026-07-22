@@ -118,10 +118,6 @@ function renderMcVersionOptions(type) {
     }
 }
 
-
-
-// ---- Picker de versión del cargador ----
-
 function openLoaderPicker() {
     if (loaderPickerTrigger.disabled) return;
     loaderPicker.classList.add('open');

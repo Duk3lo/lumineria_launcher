@@ -28,7 +28,6 @@ pub fn get_minecraft_default_path() -> String {
 pub async fn load_profiles(base_dir: String) -> Result<Value, String> {
     let path = PathBuf::from(&base_dir).join("profiles.json");
     if !path.exists() {
-        // Aseguramos que la carpeta base exista antes de escribir
         tokio::fs::create_dir_all(&base_dir).await.map_err(|e| e.to_string())?;
         
         let default_profiles = serde_json::json!({});
@@ -44,7 +43,6 @@ pub async fn load_profiles(base_dir: String) -> Result<Value, String> {
 #[tauri::command]
 pub async fn save_profile(base_dir: String, profile_id: String, profile_data: Value) -> Result<(), String> {
     let path = PathBuf::from(&base_dir).join("profiles.json");
-    // Aseguramos que la carpeta base exista antes de escribir
     tokio::fs::create_dir_all(&base_dir).await.map_err(|e| e.to_string())?;
     
     let mut profiles: Value = if path.exists() {
@@ -66,8 +64,6 @@ pub async fn fetch_official_modpacks(base_dir: String) -> Result<Value, String> 
     let config_path = PathBuf::from(&base_dir).join("launcher_config.json");
     if !config_path.exists() {
         tokio::fs::create_dir_all(&base_dir).await.map_err(|e| e.to_string())?;
-        
-        // Uso de la nueva función de configuración
         let default_config = serde_json::json!({ "api_url": net::modpacks_api_url() });
         tokio::fs::write(&config_path, serde_json::to_string_pretty(&default_config).unwrap())
             .await
@@ -76,7 +72,6 @@ pub async fn fetch_official_modpacks(base_dir: String) -> Result<Value, String> 
     let config_data = tokio::fs::read_to_string(&config_path).await.map_err(|e| e.to_string())?;
     let config: Value = serde_json::from_str(&config_data).map_err(|e| e.to_string())?;
     
-    // Uso de la nueva función en el fallback
     let url = config["api_url"].as_str().unwrap_or(net::modpacks_api_url());
 
     let response = net::http_client()

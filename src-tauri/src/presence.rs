@@ -82,7 +82,6 @@ async fn refresh_discord_presence(
 
     match active {
         Some(instance) => {
-            // Jugando: ícono pequeño del loader (o del servidor si aplica)
             let (loader_img, loader_text) = loader_presence_assets(&instance.loader_name);
             let party_size = match (instance.players_online, instance.max_players) {
                 (Some(online), Some(max)) if max > 0 => Some((online, max)),

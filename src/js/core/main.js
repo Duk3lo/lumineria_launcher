@@ -9,8 +9,6 @@ import { initCreator } from '../features/instances/creator.js';
 import { openLoginModal, closeLoginModal, handleOfflineLogin, handleMicrosoftLogin, restoreSession } from '../features/auth/auth.js';
 import { loadExploreModpacks, initExplore } from '../features/explore/explore.js';
 
-// Ya no necesitamos appWindow.onResized, el CSS se encarga de todo nativamente.
-
 async function checkForUpdates() {
     try {
         const { check } = updater;
