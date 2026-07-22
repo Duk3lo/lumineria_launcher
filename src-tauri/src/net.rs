@@ -35,6 +35,14 @@ pub fn download_client() -> &'static reqwest::Client {
     })
 }
 
+#[tauri::command]
+pub async fn check_url_reachable(url: String) -> bool {
+    match http_client().get(&url).send().await {
+        Ok(resp) => resp.status().is_success(),
+        Err(_) => false,
+    }
+}
+
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 

@@ -17,12 +17,8 @@ export async function sincronizarModpack(profileId, { silent = false } = {}) {
     syncingInstances.add(profileId);
     document.dispatchEvent(new CustomEvent('lumineria:sync-state-changed', { detail: { id: profileId, syncing: true } }));
     try {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-            await fetch(profile.packwiz_url, { signal: controller.signal });
-            clearTimeout(timeoutId);
-        } catch {
+        const reachable = await invoke('check_url_reachable', { url: profile.packwiz_url });
+        if (!reachable) {
             const err = new Error('Sin conexión al servidor de mods.');
             err.isConnectionError = true;
             throw err;

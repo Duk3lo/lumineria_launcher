@@ -1,4 +1,5 @@
 mod auth;
+mod config;
 mod discord;
 mod downloader;
 mod games;
@@ -8,7 +9,6 @@ mod java;
 mod net;
 mod presence;
 mod settings;
-mod config;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -48,7 +48,9 @@ fn get_default_path(app: tauri::AppHandle) -> String {
 
 #[tauri::command]
 async fn ensure_dir(path: String) -> Result<(), String> {
-    tokio::fs::create_dir_all(&path).await.map_err(|e| e.to_string())
+    tokio::fs::create_dir_all(&path)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -57,7 +59,10 @@ fn open_folder(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn kill_instance(profile_id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+async fn kill_instance(
+    profile_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
     let mut processes = state.running_processes.lock().await;
     if let Some(tx) = processes.remove(&profile_id) {
         let _ = tx.send(());
@@ -154,7 +159,9 @@ pub fn run() {
             instance::profiles::fetch_forge_versions,
             instance::profiles::cleanup_old_version,
             // --- Paquetes especiales ---
-            instance::packwiz::sync_packwiz_modpack
+            instance::packwiz::sync_packwiz_modpack,
+            // --- Red ---
+            net::check_url_reachable,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
