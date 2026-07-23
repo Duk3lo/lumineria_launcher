@@ -1,4 +1,4 @@
-app-id: com.lumineria.launcher
+app-id: org.astral.lumineria.Launcher
 runtime: org.freedesktop.Platform
 runtime-version: '23.08'
 sdk: org.freedesktop.Sdk
@@ -15,9 +15,9 @@ modules:
   - name: lumineria-launcher
     buildsystem: simple
     build-commands:
-      # Tauri v2 compila el frontend y el binario de Rust mediante su CLI o cargo
-      - cargo build --release --manifest-path src-tauri/Cargo.toml
+      - cargo --offline build --release --manifest-path src-tauri/Cargo.toml
       - install -Dm755 src-tauri/target/release/lumineria-launcher /app/bin/lumineria-launcher
     sources:
       - type: dir
         path: .
+      - generated-sources.json

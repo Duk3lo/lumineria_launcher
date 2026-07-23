@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+
+flatpak-builder-tools/
+.flatpak-builder/
+*.flatpak
