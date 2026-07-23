@@ -107,4 +107,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.ref_name }} lumineria-launcher.flatpak
+          gh release upload ${{ github.ref_name }} lumineria-launcher.flatpak --repo ${{ github.repository }}
