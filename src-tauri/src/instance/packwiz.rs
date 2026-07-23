@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use sha1::Sha1;
+use sha2::{Digest, Sha256};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Deserialize)]
 struct PackToml {
@@ -37,6 +39,10 @@ struct ModMetaToml {
 #[derive(Debug, Deserialize)]
 struct ModDownload {
     url: Option<String>,
+    #[serde(rename = "hash-format", default)]
+    hash_format: Option<String>,
+    #[serde(default)]
+    hash: Option<String>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -55,6 +61,71 @@ fn base_url(pack_url: &str) -> String {
 
 fn resolve_url(base: &str, relative: &str) -> String {
     format!("{}{}", base, relative)
+}
+
+fn hash_bytes(bytes: &[u8], format: &str) -> Option<String> {
+    match format.to_lowercase().as_str() {
+        "sha256" => {
+            let mut hasher = Sha256::new();
+            hasher.update(bytes);
+            Some(hex::encode(hasher.finalize()))
+        }
+        "sha1" => {
+            let mut hasher = Sha1::new();
+            hasher.update(bytes);
+            Some(hex::encode(hasher.finalize()))
+        }
+        _ => None,
+    }
+}
+
+enum UpdateReason {
+    Missing,
+    HashMismatch,
+    SizeMismatch,
+    UpToDate,
+    Unverifiable,
+}
+
+async fn check_update_needed(
+    dest_file: &Path,
+    expected_hash: Option<&str>,
+    hash_format: Option<&str>,
+    download_url: &str,
+    client: &reqwest::Client,
+) -> UpdateReason {
+    if !dest_file.exists() {
+        return UpdateReason::Missing;
+    }
+
+    let local_bytes = match tokio::fs::read(dest_file).await {
+        Ok(b) => b,
+        Err(_) => return UpdateReason::Missing,
+    };
+
+    if let (Some(expected), Some(format)) = (expected_hash, hash_format) {
+        if let Some(local_hash) = hash_bytes(&local_bytes, format) {
+            return if local_hash.eq_ignore_ascii_case(expected) {
+                UpdateReason::UpToDate
+            } else {
+                UpdateReason::HashMismatch
+            };
+        }
+    }
+
+    match client.head(download_url).send().await {
+        Ok(resp) => match resp.content_length() {
+            Some(remote_len) => {
+                if remote_len as usize != local_bytes.len() {
+                    UpdateReason::SizeMismatch
+                } else {
+                    UpdateReason::UpToDate
+                }
+            }
+            None => UpdateReason::Unverifiable,
+        },
+        Err(_) => UpdateReason::Unverifiable,
+    }
 }
 
 #[tauri::command]
@@ -142,14 +213,31 @@ pub async fn sync_packwiz_modpack(pack_url: String, instance_dir: String) -> Res
         tokio::fs::create_dir_all(&dest_dir).await.map_err(|e| e.to_string())?;
         let dest_file = dest_dir.join(&meta.filename);
 
-        if dest_file.exists() {
+        let reason = check_update_needed(
+            &dest_file,
+            meta.download.hash.as_deref(),
+            meta.download.hash_format.as_deref(),
+            &download_url,
+            &client,
+        )
+        .await;
+
+        let (should_download, skip_status): (bool, Option<&str>) = match reason {
+            UpdateReason::Missing | UpdateReason::HashMismatch | UpdateReason::SizeMismatch => (true, None),
+            UpdateReason::UpToDate => (false, Some("ya presente (verificado)")),
+            UpdateReason::Unverifiable => (false, Some("ya presente (sin verificar)")),
+        };
+
+        if !should_download {
             results.push(SyncedMod {
                 name: meta.name,
                 filename: meta.filename,
-                status: "ya presente".into(),
+                status: skip_status.unwrap().into(),
             });
             continue;
         }
+
+        let was_update = dest_file.exists();
 
         match client.get(&download_url).send().await {
             Ok(r) if r.status().is_success() => match r.bytes().await {
@@ -164,7 +252,7 @@ pub async fn sync_packwiz_modpack(pack_url: String, instance_dir: String) -> Res
                         results.push(SyncedMod {
                             name: meta.name,
                             filename: meta.filename,
-                            status: "descargado".into(),
+                            status: if was_update { "actualizado".into() } else { "descargado".into() },
                         });
                     }
                 }

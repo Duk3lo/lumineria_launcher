@@ -95,7 +95,7 @@ jobs:
       - name: Descargar el bundle generado
         uses: actions/download-artifact@v4
         with:
-          name: lumineria-launcher.flatpak
+          name: lumineria-launcher-x86_64.flatpak
 
       - name: Subir Flatpak al Release
         env:
