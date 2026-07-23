@@ -1,7 +1,6 @@
 app-id: org.astral.lumineria.Launcher
-# Cambiamos a GNOME para asegurar compatibilidad con WebKit2GTK requerido por Tauri
 runtime: org.gnome.Platform
-runtime-version: '45'
+runtime-version: '49'   # antes: '45'
 sdk: org.gnome.Sdk
 command: lumineria_launcher
 finish-args:
