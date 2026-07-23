@@ -27,3 +27,4 @@ dist-ssr
 flatpak-builder-tools/
 .flatpak-builder/
 *.flatpak
+flatpak-cargo-generator.py
