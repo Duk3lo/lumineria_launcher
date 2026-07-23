@@ -78,6 +78,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Generar generated-sources.json desde Cargo.lock
+        run: |
+          pip install --break-system-packages aiohttp tomlkit
+          curl -L -o flatpak-cargo-generator.py https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/cargo/flatpak-cargo-generator.py
+          python3 flatpak-cargo-generator.py src-tauri/Cargo.lock -o generated-sources.json
+
       - name: Construir el paquete Flatpak
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
