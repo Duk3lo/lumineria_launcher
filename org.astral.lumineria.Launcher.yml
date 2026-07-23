@@ -1,6 +1,6 @@
 app-id: org.astral.lumineria.Launcher
 runtime: org.gnome.Platform
-runtime-version: '49'   # antes: '45'
+runtime-version: '49'
 sdk: org.gnome.Sdk
 command: lumineria_launcher
 finish-args:
@@ -11,11 +11,9 @@ finish-args:
   - --share=network
   - --filesystem=host
 
-# 1. Añadimos la extensión de Rust oficial
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
 
-# 2. Añadimos Cargo al PATH durante la compilación
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin
   env:
