@@ -1,0 +1,23 @@
+app-id: com.lumineria.launcher
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+command: lumineria-launcher
+finish-args:
+  - --share=ipc
+  - --socket=x11
+  - --socket=wayland
+  - --device=dri
+  - --share=network
+  - --filesystem=host
+
+modules:
+  - name: lumineria-launcher
+    buildsystem: simple
+    build-commands:
+      # Tauri v2 compila el frontend y el binario de Rust mediante su CLI o cargo
+      - cargo build --release --manifest-path src-tauri/Cargo.toml
+      - install -Dm755 src-tauri/target/release/lumineria-launcher /app/bin/lumineria-launcher
+    sources:
+      - type: dir
+        path: .
