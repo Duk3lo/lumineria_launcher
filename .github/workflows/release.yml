@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-22.04, windows-latest, macos-latest]
+        platform: [windows-latest, macos-latest]
 
     runs-on: ${{ matrix.platform }}
 
@@ -23,12 +23,6 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
       - name: Install Tauri CLI
         run: cargo install tauri-cli
@@ -45,3 +39,24 @@ jobs:
           releaseBody: 'Nueva versión del launcher.'
           releaseDraft: false
           prerelease: false
+
+  build-flatpak:
+    runs-on: ubuntu-latest
+    needs: build-tauri
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Construir el paquete Flatpak
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: lumineria-launcher.flatpak
+          manifest-path: org.lumineria.Launcher.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+
+      - name: Subir Flatpak al Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.ref_name }} lumineria-launcher.flatpak
