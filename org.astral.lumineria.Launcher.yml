@@ -2,7 +2,7 @@ app-id: org.astral.lumineria.Launcher
 runtime: org.freedesktop.Platform
 runtime-version: '23.08'
 sdk: org.freedesktop.Sdk
-command: lumineria-launcher
+command: lumineria_launcher
 finish-args:
   - --share=ipc
   - --socket=x11
@@ -16,7 +16,7 @@ modules:
     buildsystem: simple
     build-commands:
       - cargo --offline build --release --manifest-path src-tauri/Cargo.toml
-      - install -Dm755 src-tauri/target/release/lumineria-launcher /app/bin/lumineria-launcher
+      - install -Dm755 src-tauri/target/release/lumineria_launcher /app/bin/lumineria_launcher
     sources:
       - type: dir
         path: .
