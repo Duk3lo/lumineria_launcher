@@ -90,7 +90,11 @@ jobs:
           bundle: lumineria-launcher.flatpak
           manifest-path: com.lumineria.Launcher.yml
           cache-key: flatpak-builder-${{ github.sha }}
-          artifact-name: lumineria-launcher.flatpak
+      - name: Subir Flatpak bundle al workflow (v4)
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-bundle
+          path: lumineria-launcher.flatpak
 
   upload-flatpak-release:
     runs-on: ubuntu-latest
@@ -104,7 +108,7 @@ jobs:
       - name: Descargar el bundle generado
         uses: actions/download-artifact@v4
         with:
-          name: lumineria-launcher.flatpak
+          name: flatpak-bundle
 
       - name: Obtener el tag de la versión actual
         id: version
@@ -116,4 +120,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Al descargar "flatpak-bundle", el archivo "lumineria-launcher.flatpak" queda extraído aquí mismo
           gh release upload ${{ steps.version.outputs.tag }} lumineria-launcher.flatpak --repo ${{ github.repository }} --clobber
