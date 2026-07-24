@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Lumineria Launcher
+Comment=Launcher de Minecraft con soporte para NeoForge y Forge
+Exec=lumineria_launcher
+Icon=com.lumineria.Launcher
+Terminal=false
+Type=Application
+Categories=Game;
+StartupWMClass=lumineria_launcher

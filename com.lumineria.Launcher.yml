@@ -1,4 +1,4 @@
-app-id: org.astral.lumineria.Launcher
+app-id: com.lumineria.Launcher
 runtime: org.gnome.Platform
 runtime-version: '49'
 sdk: org.gnome.Sdk
@@ -6,10 +6,12 @@ command: lumineria_launcher
 finish-args:
   - --share=ipc
   - --socket=x11
+  - --socket=fallback-x11
   - --socket=wayland
   - --device=dri
   - --share=network
   - --filesystem=host
+  - --env=WEBKIT_DISABLE_DMABUF_RENDERER=1
 
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
@@ -25,6 +27,10 @@ modules:
     build-commands:
       - cargo --offline build --release --manifest-path src-tauri/Cargo.toml
       - install -Dm755 src-tauri/target/release/lumineria_launcher /app/bin/lumineria_launcher
+      - install -Dm644 com.lumineria.Launcher.desktop /app/share/applications/com.lumineria.Launcher.desktop
+      - install -Dm644 com.lumineria.Launcher.metainfo.xml /app/share/metainfo/com.lumineria.Launcher.metainfo.xml
+      - install -Dm644 src-tauri/icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.lumineria.Launcher.png
+      - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.lumineria.Launcher.png
     sources:
       - type: dir
         path: .

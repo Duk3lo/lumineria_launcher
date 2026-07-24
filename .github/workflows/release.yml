@@ -88,7 +88,7 @@ jobs:
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: lumineria-launcher.flatpak
-          manifest-path: org.astral.lumineria.Launcher.yml
+          manifest-path: com.lumineria.Launcher.yml
           cache-key: flatpak-builder-${{ github.sha }}
           artifact-name: lumineria-launcher.flatpak
 
@@ -104,7 +104,7 @@ jobs:
       - name: Descargar el bundle generado
         uses: actions/download-artifact@v4
         with:
-          name: lumineria-launcher-x86_64.flatpak
+          name: lumineria-launcher.flatpak
 
       - name: Obtener el tag de la versión actual
         id: version

@@ -1,4 +1,4 @@
-import { PROFILES, getBaseDirectory, getInstanceDir, AUTH_SESSION, SETTINGS, resetInstanceLibraries } from '../../core/state.js';
+import { PROFILES, getBaseDirectory, getInstanceDir, AUTH_SESSION, SETTINGS, resetInstanceLibraries, saveProfileToDisk } from '../../core/state.js';
 import { invoke, listen } from '../../core/tauri.js';
 import { updateStatus, updateCardProgress, setCardPlayState, refreshCardStatus } from '../../ui/ui.js';
 import { setInstanceRunning, setInstancePreparing } from './instanceDetail.js';
@@ -52,6 +52,9 @@ export async function sincronizarModpack(profileId, { silent = false } = {}) {
             args: ['-g', profile.packwiz_url],
             workDir: instanceDir
         });
+
+        document.dispatchEvent(new CustomEvent('lumineria:mods-updated', { detail: { id: profileId } }));
+
         if (!silent) updateStatus(`Mods de ${profile.title} actualizados.`);
     } catch (e) {
         if (!silent) updateStatus(`Error sincronizando mods: ${e}`);
@@ -177,10 +180,12 @@ export async function iniciarJuego(profileId, force = false, isLocal = false, lo
             }
         }
 
-        if (profile.packwiz_url) {
-            updateCardProgress(profileId, 60, 'Sincronizando mods...');
+        if (profile.packwiz_url && !profile.last_checked_at) {
+            updateCardProgress(profileId, 60, 'Descargando mods por primera vez...');
             try {
                 await sincronizarModpack(profileId, { silent: true });
+                profile.last_checked_at = Date.now();
+                await saveProfileToDisk(profileId, profile);
             } catch (e) {
                 console.warn('No se pudo sincronizar mods, se continúa con los ya instalados:', e);
                 updateStatus('Sin conexión al servidor de mods — iniciando con lo que ya está instalado.');

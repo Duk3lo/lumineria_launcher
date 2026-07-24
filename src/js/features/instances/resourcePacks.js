@@ -77,3 +77,9 @@ rpSearchInput?.addEventListener('input', () => {
     const filtered = query ? currentRPs.filter(r => r.displayName.toLowerCase().includes(query)) : currentRPs;
     renderRPList(filtered);
 });
+
+document.addEventListener('lumineria:mods-updated', (e) => {
+    if (e.detail.id === currentProfileId) {
+        renderResourcePacksForInstance(currentProfileId);
+    }
+});

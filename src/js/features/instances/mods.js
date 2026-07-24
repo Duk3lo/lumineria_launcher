@@ -92,3 +92,9 @@ modsSearchInput?.addEventListener('input', () => {
         : currentMods;
     renderModsList(filtered);
 });
+
+document.addEventListener('lumineria:mods-updated', (e) => {
+    if (e.detail.id === currentProfileId) {
+        renderModsForInstance(currentProfileId);
+    }
+});

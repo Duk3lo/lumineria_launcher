@@ -1,4 +1,4 @@
-import { PROFILES, deleteProfileFromDisk, syncSingleProfileFromDatabase } from '../../core/state.js';
+import { PROFILES, deleteProfileFromDisk, syncSingleProfileFromDatabase, saveProfileToDisk } from '../../core/state.js';
 import { invoke, listen } from '../../core/tauri.js';
 import { iniciarJuego, abrirCarpetaInstancia, sincronizarModpack, isSyncing } from './launcher.js';
 import { renderModsForInstance } from './mods.js';
@@ -23,6 +23,30 @@ const btnDelete = document.getElementById('btn-instance-delete');
 const statusText = document.getElementById('instance-status-text');
 const logsOutput = document.getElementById('instance-logs-output');
 const btnCheckDb = document.getElementById('btn-instance-check-db');
+
+let lastManualAction = 0;
+const MANUAL_ACTION_COOLDOWN_MS = 4000;
+const AUTO_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+function debeAutoVerificar(profile) {
+    if (!profile) return false;
+    if (!profile.last_checked_at) return true;
+    return (Date.now() - profile.last_checked_at) >= AUTO_CHECK_INTERVAL_MS;
+}
+
+async function marcarComprobado(profileId) {
+    const profile = PROFILES[profileId];
+    if (!profile) return;
+    profile.last_checked_at = Date.now();
+    await saveProfileToDisk(profileId, profile);
+}
+
+function puedeAccionar() {
+    const now = Date.now();
+    if (now - lastManualAction < MANUAL_ACTION_COOLDOWN_MS) return false;
+    lastManualAction = now;
+    return true;
+}
 
 function getCurrentProfile() {
     return currentDetailIsLocal ? currentDetailLocalProfile : PROFILES[currentDetailProfileId];
@@ -52,7 +76,7 @@ export function initInstanceDetail() {
     });
 
     btnUpdate?.addEventListener('click', async () => {
-        if (!currentDetailProfileId) return;
+        if (!currentDetailProfileId || !puedeAccionar()) return;
         await runSyncForCurrentInstance();
     });
 
@@ -151,13 +175,14 @@ export function initInstanceDetail() {
 
 
     btnCheckDb?.addEventListener('click', async () => {
-        if (!currentDetailProfileId || !getCurrentProfile()?.is_official) return;
+        if (!currentDetailProfileId || !getCurrentProfile()?.is_official || !puedeAccionar()) return;
 
         setBusyState(true);
         statusText.innerText = "Consultando base de datos oficial...";
 
         try {
             const changed = await syncSingleProfileFromDatabase(currentDetailProfileId);
+            await marcarComprobado(currentDetailProfileId);
             if (changed) {
                 statusText.innerText = "¡Actualizado! Lista para jugar con la nueva versión.";
                 drawProfiles();
@@ -214,8 +239,7 @@ export function openInstanceDetail(profileId, isLocal = false, localProfile = nu
     viewGrid.classList.add('hidden');
     viewInstance.classList.remove('hidden');
 
-    if (hasPackwiz && !isSyncing(profileId) && !autoSyncedThisSession.has(profileId)) {
-        autoSyncedThisSession.add(profileId);
+    if (!isLocal && (hasPackwiz || isOfficial) && !isSyncing(profileId) && debeAutoVerificar(profile)) {
         runSyncForCurrentInstance({ silent: true });
     }
 }
@@ -253,6 +277,8 @@ async function runSyncForCurrentInstance({ silent = false } = {}) {
             if (!silent) statusText.innerText = "Sincronizando mods...";
             await sincronizarModpack(profileId, { silent: true });
         }
+
+        await marcarComprobado(profileId);
 
         if (currentDetailProfileId === profileId) {
             if (changed) {
