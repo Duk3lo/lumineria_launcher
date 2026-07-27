@@ -1,7 +1,9 @@
+use crate::hashutil::{hash_bytes, verify_bytes};
+use minisign_verify::{PublicKey, Signature};
 use serde::{Deserialize, Serialize};
-use sha1::Sha1;
-use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
+
+const PACKWIZ_PUBLIC_KEY: &str = "RWTNj+z2kj55F5kgqyC2aWuei+iPmn9zRHLWiOraUDIWAEs6X1UYLjKl";
 
 #[derive(Debug, Deserialize)]
 struct PackToml {
@@ -63,22 +65,6 @@ fn resolve_url(base: &str, relative: &str) -> String {
     format!("{}{}", base, relative)
 }
 
-fn hash_bytes(bytes: &[u8], format: &str) -> Option<String> {
-    match format.to_lowercase().as_str() {
-        "sha256" => {
-            let mut hasher = Sha256::new();
-            hasher.update(bytes);
-            Some(hex::encode(hasher.finalize()))
-        }
-        "sha1" => {
-            let mut hasher = Sha1::new();
-            hasher.update(bytes);
-            Some(hex::encode(hasher.finalize()))
-        }
-        _ => None,
-    }
-}
-
 enum UpdateReason {
     Missing,
     HashMismatch,
@@ -129,7 +115,10 @@ async fn check_update_needed(
 }
 
 #[tauri::command]
-pub async fn sync_packwiz_modpack(pack_url: String, instance_dir: String) -> Result<Vec<SyncedMod>, String> {
+pub async fn sync_packwiz_modpack(
+    pack_url: String,
+    instance_dir: String,
+) -> Result<Vec<SyncedMod>, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
@@ -145,7 +134,8 @@ pub async fn sync_packwiz_modpack(pack_url: String, instance_dir: String) -> Res
         .text()
         .await
         .map_err(|e| e.to_string())?;
-    let pack: PackToml = toml::from_str(&pack_raw).map_err(|e| format!("pack.toml inválido: {}", e))?;
+    let pack: PackToml =
+        toml::from_str(&pack_raw).map_err(|e| format!("pack.toml inválido: {}", e))?;
 
     let index_url = resolve_url(&base, &pack.index.file);
     let index_raw = client
@@ -156,7 +146,22 @@ pub async fn sync_packwiz_modpack(pack_url: String, instance_dir: String) -> Res
         .text()
         .await
         .map_err(|e| e.to_string())?;
-    let index: IndexToml = toml::from_str(&index_raw).map_err(|e| format!("index.toml inválido: {}", e))?;
+
+    let sig_url = format!("{}.minisig", index_url);
+    let sig_raw = client
+        .get(&sig_url)
+        .send()
+        .await
+        .map_err(|e| format!("no se pudo descargar la firma de index.toml: {e}"))?
+        .text()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    verify_index_signature(index_raw.as_bytes(), &sig_raw)
+        .map_err(|e| format!("Sincronización abortada: {e}"))?;
+
+    let index: IndexToml =
+        toml::from_str(&index_raw).map_err(|e| format!("index.toml inválido: {}", e))?;
 
     let mut results = Vec::new();
 
@@ -209,8 +214,18 @@ pub async fn sync_packwiz_modpack(pack_url: String, instance_dir: String) -> Res
         };
 
         let category = entry.file.split('/').next().unwrap_or("mods");
+        if category == ".." || category.contains('\\') {
+            results.push(SyncedMod {
+                name: entry.file.clone(),
+                filename: entry.file.clone(),
+                status: "ruta inválida en index.toml, omitido".into(),
+            });
+            continue;
+        }
         let dest_dir = PathBuf::from(&instance_dir).join(category);
-        tokio::fs::create_dir_all(&dest_dir).await.map_err(|e| e.to_string())?;
+        tokio::fs::create_dir_all(&dest_dir)
+            .await
+            .map_err(|e| e.to_string())?;
         let dest_file = dest_dir.join(&meta.filename);
 
         let reason = check_update_needed(
@@ -223,7 +238,9 @@ pub async fn sync_packwiz_modpack(pack_url: String, instance_dir: String) -> Res
         .await;
 
         let (should_download, skip_status): (bool, Option<&str>) = match reason {
-            UpdateReason::Missing | UpdateReason::HashMismatch | UpdateReason::SizeMismatch => (true, None),
+            UpdateReason::Missing | UpdateReason::HashMismatch | UpdateReason::SizeMismatch => {
+                (true, None)
+            }
             UpdateReason::UpToDate => (false, Some("ya presente (verificado)")),
             UpdateReason::Unverifiable => (false, Some("ya presente (sin verificar)")),
         };
@@ -242,6 +259,20 @@ pub async fn sync_packwiz_modpack(pack_url: String, instance_dir: String) -> Res
         match client.get(&download_url).send().await {
             Ok(r) if r.status().is_success() => match r.bytes().await {
                 Ok(bytes) => {
+                    if let (Some(expected), Some(format)) = (
+                        meta.download.hash.as_deref(),
+                        meta.download.hash_format.as_deref(),
+                    ) {
+                        if let Err(e) = verify_bytes(&bytes, expected, format) {
+                            results.push(SyncedMod {
+                                name: meta.name,
+                                filename: meta.filename,
+                                status: format!("RECHAZADO: {e}"),
+                            });
+                            continue;
+                        }
+                    }
+
                     if let Err(e) = tokio::fs::write(&dest_file, &bytes).await {
                         results.push(SyncedMod {
                             name: meta.name,
@@ -252,7 +283,11 @@ pub async fn sync_packwiz_modpack(pack_url: String, instance_dir: String) -> Res
                         results.push(SyncedMod {
                             name: meta.name,
                             filename: meta.filename,
-                            status: if was_update { "actualizado".into() } else { "descargado".into() },
+                            status: if was_update {
+                                "actualizado".into()
+                            } else {
+                                "descargado".into()
+                            },
                         });
                     }
                 }
@@ -276,4 +311,11 @@ pub async fn sync_packwiz_modpack(pack_url: String, instance_dir: String) -> Res
     }
 
     Ok(results)
+}
+
+fn verify_index_signature(index_bytes: &[u8], sig_text: &str) -> Result<(), String> {
+    let pk = PublicKey::from_base64(PACKWIZ_PUBLIC_KEY).map_err(|e| e.to_string())?;
+    let sig = Signature::decode(sig_text.trim()).map_err(|e| e.to_string())?;
+    pk.verify(index_bytes, &sig, false)
+        .map_err(|_| "firma de index.toml inválida — posible manipulación del servidor".to_string())
 }
