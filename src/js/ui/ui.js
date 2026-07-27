@@ -9,6 +9,7 @@ import {
     deleteProfileFromDisk
 } from '../core/state.js';
 import { invoke, listen } from '../core/tauri.js';
+import { setSafeBackgroundImage } from '../core/domSafety.js';
 
 import { showAlert, showConfirm } from './dialogs.js';
 
@@ -61,16 +62,20 @@ export async function drawProfiles() {
         console.warn("No se pudieron buscar versiones de .minecraft:", e);
     }
     if (profilesGrid.innerHTML === '') {
-        profilesGrid.innerHTML = `<p class="mods-empty-state">No hay instancias. ¡Crea una nueva o instala una oficial!</p>`;
+        const emptyMsg = document.createElement('p');
+        emptyMsg.className = 'mods-empty-state';
+        emptyMsg.textContent = 'No hay instancias. ¡Crea una nueva o instala una oficial!';
+        profilesGrid.appendChild(emptyMsg);
     }
     refreshAllCardStatuses(Object.keys(PROFILES));
     Object.keys(PROFILES).forEach(id => applyCardProgressDOM(id));
 }
+
 function renderSection(title, items, isVanillaLocal) {
     const header = document.createElement('h2');
     header.className = 'section-title';
-    header.innerText = title;
-    header.style = "grid-column: 1 / -1; margin: 30px 0 15px 0; font-size: 1.1rem; color: var(--primary-glow); border-left: 4px solid var(--primary-glow); padding-left: 15px; background: rgba(192, 132, 252, 0.05); padding-top: 5px; padding-bottom: 5px; border-radius: 0 8px 8px 0;";
+    header.textContent = title;
+    header.style.cssText = "grid-column: 1 / -1; margin: 30px 0 15px 0; font-size: 1.1rem; color: var(--primary-glow); border-left: 4px solid var(--primary-glow); padding-left: 15px; background: rgba(192, 132, 252, 0.05); padding-top: 5px; padding-bottom: 5px; border-radius: 0 8px 8px 0;";
     profilesGrid.appendChild(header);
 
     Object.keys(items).forEach(id => {
@@ -79,56 +84,125 @@ function renderSection(title, items, isVanillaLocal) {
 }
 
 function buildProfileCard(id, profile, isVanillaLocal) {
+    const imageUrl = profile.image ? profile.image : 'assets/logo.png';
+    const dotClass = isVanillaLocal ? "status-dot installed" : "status-dot";
+    const dotTitle = isVanillaLocal ? "Instalado (Local)" : "Comprobando...";
+
     const card = document.createElement('div');
     card.className = 'profile-card';
     if (isVanillaLocal) card.classList.add('local-pc-card');
     card.id = `card-${id}`;
     card.dataset.profileId = id;
-    const imageUrl = profile.image ? profile.image : 'assets/logo.png';
-    const dotClass = isVanillaLocal ? "status-dot installed" : "status-dot";
-    const dotTitle = isVanillaLocal ? "Instalado (Local)" : "Comprobando...";
 
-    card.innerHTML = `
-        <div class="profile-card-bg" style="background-image:url('${imageUrl}')"></div>
-        <div class="profile-content">
-            <div class="profile-title-row">
-                <h3 class="profile-title">${profile.title}</h3>
-                <!-- Aplicamos las variables creadas arriba -->
-                <span class="${dotClass}" id="status-dot-${id}" title="${dotTitle}"></span>
-            </div>
-            <div class="profile-badges">
-                <span class="badge loader">${profile.loader_name} ${isVanillaLocal ? '(PC)' : ''}</span>
-                <span class="badge version">${profile.mc_version}</span>
-            </div>
+    const bg = document.createElement('div');
+    bg.className = 'profile-card-bg';
+    setSafeBackgroundImage(bg, imageUrl);
 
-            <div class="card-progress hidden" id="card-progress-${id}">
-                <div class="card-progress-bar"><div class="card-progress-fill" id="card-progress-fill-${id}"></div></div>
-                <span class="card-progress-label" id="card-progress-label-${id}">Preparando...</span>
-            </div>
+    const content = document.createElement('div');
+    content.className = 'profile-content';
 
-            <div class="profile-actions">
-                <div class="play-button-group">
-                    <button class="play-btn-card" id="play-btn-${id}" data-action="play">Jugar</button>
-                    ${!isVanillaLocal ? `
-<button class="play-dropdown-toggle" id="dropdown-toggle-${id}" data-action="toggle-menu">⋮</button>
-<div class="card-dropdown-menu hidden" id="dropdown-menu-${id}">
-    <button data-action="open-folder">📂 Abrir Carpeta</button>
-    <button data-action="view-mods">🧩 Ver Mods</button>
-    <button data-action="reinstall">🔄 Reinstalar</button>
-    <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;">
-    <button data-action="delete" style="color: #f87171;">🗑 Eliminar Instancia</button>
-</div>
-` : `
+    const titleRow = document.createElement('div');
+    titleRow.className = 'profile-title-row';
 
-<button class="play-dropdown-toggle" id="dropdown-toggle-${id}" data-action="toggle-menu">⋮</button>
-<div class="card-dropdown-menu hidden" id="dropdown-menu-${id}">
-    <button data-action="delete-local" style="color: #f87171;">🗑 Eliminar de .minecraft</button>
-</div>
-`}
-                </div>
-            </div>
-        </div>
-    `;
+    const h3 = document.createElement('h3');
+    h3.className = 'profile-title';
+    h3.textContent = profile.title;
+
+    const dot = document.createElement('span');
+    dot.className = dotClass;
+    dot.id = `status-dot-${id}`;
+    dot.title = dotTitle;
+
+    titleRow.append(h3, dot);
+
+    const badges = document.createElement('div');
+    badges.className = 'profile-badges';
+
+    const loaderBadge = document.createElement('span');
+    loaderBadge.className = 'badge loader';
+    loaderBadge.textContent = `${profile.loader_name}${isVanillaLocal ? ' (PC)' : ''}`;
+
+    const versionBadge = document.createElement('span');
+    versionBadge.className = 'badge version';
+    versionBadge.textContent = profile.mc_version;
+
+    badges.append(loaderBadge, versionBadge);
+
+    const progress = document.createElement('div');
+    progress.className = 'card-progress hidden';
+    progress.id = `card-progress-${id}`;
+
+    const progressBar = document.createElement('div');
+    progressBar.className = 'card-progress-bar';
+    const progressFill = document.createElement('div');
+    progressFill.className = 'card-progress-fill';
+    progressFill.id = `card-progress-fill-${id}`;
+    progressBar.appendChild(progressFill);
+
+    const progressLabel = document.createElement('span');
+    progressLabel.className = 'card-progress-label';
+    progressLabel.id = `card-progress-label-${id}`;
+    progressLabel.textContent = 'Preparando...';
+
+    progress.append(progressBar, progressLabel);
+
+    const actions = document.createElement('div');
+    actions.className = 'profile-actions';
+    const playGroup = document.createElement('div');
+    playGroup.className = 'play-button-group';
+
+    const playBtn = document.createElement('button');
+    playBtn.className = 'play-btn-card';
+    playBtn.id = `play-btn-${id}`;
+    playBtn.dataset.action = 'play';
+    playBtn.textContent = 'Jugar';
+    playGroup.appendChild(playBtn);
+
+    const dropdownToggle = document.createElement('button');
+    dropdownToggle.className = 'play-dropdown-toggle';
+    dropdownToggle.id = `dropdown-toggle-${id}`;
+    dropdownToggle.dataset.action = 'toggle-menu';
+    dropdownToggle.textContent = '⋮';
+    playGroup.appendChild(dropdownToggle);
+
+    const dropdownMenu = document.createElement('div');
+    dropdownMenu.className = 'card-dropdown-menu hidden';
+    dropdownMenu.id = `dropdown-menu-${id}`;
+
+    if (!isVanillaLocal) {
+        [
+            { action: 'open-folder', text: '📂 Abrir Carpeta' },
+            { action: 'view-mods', text: '🧩 Ver Mods' },
+            { action: 'reinstall', text: '🔄 Reinstalar' },
+        ].forEach(({ action, text }) => {
+            const btn = document.createElement('button');
+            btn.dataset.action = action;
+            btn.textContent = text;
+            dropdownMenu.appendChild(btn);
+        });
+
+        const hr = document.createElement('hr');
+        hr.style.cssText = 'border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;';
+        dropdownMenu.appendChild(hr);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.dataset.action = 'delete';
+        deleteBtn.style.color = '#f87171';
+        deleteBtn.textContent = '🗑 Eliminar Instancia';
+        dropdownMenu.appendChild(deleteBtn);
+    } else {
+        const deleteLocalBtn = document.createElement('button');
+        deleteLocalBtn.dataset.action = 'delete-local';
+        deleteLocalBtn.style.color = '#f87171';
+        deleteLocalBtn.textContent = '🗑 Eliminar de .minecraft';
+        dropdownMenu.appendChild(deleteLocalBtn);
+    }
+
+    playGroup.appendChild(dropdownMenu);
+    actions.appendChild(playGroup);
+
+    content.append(titleRow, badges, progress, actions);
+    card.append(bg, content);
 
     card.addEventListener('click', async (event) => {
         const btn = event.target.closest('button');
