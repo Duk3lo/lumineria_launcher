@@ -9,6 +9,7 @@ mod java;
 mod net;
 mod presence;
 mod settings;
+mod hashutil;
 
 use std::collections::HashMap;
 use std::sync::Arc;

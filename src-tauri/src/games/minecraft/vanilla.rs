@@ -1,13 +1,19 @@
 use serde_json::Value;
 use std::path::PathBuf;
 
-use crate::net;
+use crate::{hashutil::verify_bytes, net};
 
-const VERSION_MANIFEST_URL: &str = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
+const VERSION_MANIFEST_URL: &str =
+    "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
 
 #[tauri::command]
-pub async fn ensure_vanilla_version(instance_dir: String, mc_version: String) -> Result<(), String> {
-    let version_dir = PathBuf::from(&instance_dir).join("versions").join(&mc_version);
+pub async fn ensure_vanilla_version(
+    instance_dir: String,
+    mc_version: String,
+) -> Result<(), String> {
+    let version_dir = PathBuf::from(&instance_dir)
+        .join("versions")
+        .join(&mc_version);
     let json_path = version_dir.join(format!("{}.json", mc_version));
     let jar_path = version_dir.join(format!("{}.jar", mc_version));
 
@@ -36,8 +42,7 @@ pub async fn ensure_vanilla_version(instance_dir: String, mc_version: String) ->
             .ok_or("Formato inesperado del manifiesto de versiones")?
             .iter()
             .find(|v| v["id"].as_str() == Some(mc_version.as_str()))
-            .ok_or_else(|| format!("La versión {} no existe en el manifiesto", mc_version))?
-            ["url"]
+            .ok_or_else(|| format!("La versión {} no existe en el manifiesto", mc_version))?["url"]
             .as_str()
             .ok_or("La entrada de versión no tiene URL")?
             .to_string();
@@ -68,6 +73,11 @@ pub async fn ensure_vanilla_version(instance_dir: String, mc_version: String) ->
                 .bytes()
                 .await
                 .map_err(|e| e.to_string())?;
+
+            if let Some(expected) = version_json["downloads"]["client"]["sha1"].as_str() {
+                verify_bytes(&bytes, expected, "sha1")
+                    .map_err(|e| format!("{}.jar: {}", mc_version, e))?;
+            }
 
             tokio::fs::write(&jar_path, &bytes)
                 .await
