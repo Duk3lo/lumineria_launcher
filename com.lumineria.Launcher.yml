@@ -4,13 +4,37 @@ runtime-version: '49'
 sdk: org.gnome.Sdk
 command: lumineria_launcher
 finish-args:
-  - --share=ipc
-  - --socket=x11
-  - --socket=fallback-x11
+  # --- Pantalla ---
+  # El launcher (Tauri/WebKit) corre nativo en Wayland.
+  # Minecraft usa LWJGL/GLFW, que solo habla X11: en una sesión Wayland
+  # necesita XWayland, por eso --socket=x11 va sin "fallback-".
+  # (Con fallback-x11 el juego no encontraría display bajo Wayland.)
   - --socket=wayland
-  - --device=dri
-  - --share=network
-  - --filesystem=host
+  - --socket=x11
+  - --share=ipc          # requerido por X11/XWayland (memoria compartida)
+  - --device=dri         # aceleración GPU
+
+  # --- Audio ---
+  - --socket=pulseaudio  # sin esto Minecraft no tiene sonido
+
+  # --- Red ---
+  - --share=network      # descarga de assets, mods y login de Microsoft
+
+  # --- Archivos ---
+  # NO usar --filesystem=host. Los datos del launcher viven en
+  # ~/.var/app/com.lumineria.Launcher/data (Tauri app_local_data_dir),
+  # que ya es accesible sin permisos extra.
+  # El único acceso externo que el código necesita es ~/.minecraft, para
+  # detectar y lanzar instalaciones vanilla ya existentes
+  # (get_minecraft_default_path en src-tauri/src/instance/profiles.rs).
+  # Si solo vas a usar modpacks, podés borrar esta línea y quedar aún más aislado.
+  - --filesystem=~/.minecraft
+
+  # --- Discord Rich Presence (opcional) ---
+  # discord.rs se conecta al socket IPC de Discord. Sin esto reintenta
+  # cada 5 s para siempre, sin conectar nunca.
+  - --filesystem=xdg-run/discord-ipc-0
+
   - --env=WEBKIT_DISABLE_DMABUF_RENDERER=1
 
 sdk-extensions:
