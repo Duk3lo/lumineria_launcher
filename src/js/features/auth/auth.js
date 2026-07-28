@@ -1,5 +1,6 @@
-import { loginOffline, loginMicrosoftStart, loginMicrosoftPoll, cancelMicrosoftLogin, saveSession } from '../../core/state.js';
+import { loginOffline, loginMicrosoftStart, loginMicrosoftPoll, loginMicrosoftLegacy, cancelMicrosoftLogin, saveSession, clearSession, setAuthSession } from '../../core/state.js';
 import { updateStatus } from '../../ui/ui.js';
+import { showConfirm } from '../../ui/dialogs.js';
 
 const loginModal = document.getElementById('login-modal');
 const loginStatus = document.getElementById('login-status');
@@ -8,6 +9,8 @@ const usernameInput = document.getElementById('login-username-input');
 const msLoginBtn = document.getElementById('login-microsoft-btn');
 const msCancelBtn = document.getElementById('login-microsoft-cancel-btn');
 const msCountdown = document.getElementById('login-ms-countdown');
+const logoutBtn = document.getElementById('logout-btn');
+const accountSublabel = document.getElementById('account-sublabel');
 
 const MICROSOFT_LOGIN_ENABLED = true;
 
@@ -83,7 +86,7 @@ export async function handleOfflineLogin(username) {
 
     try {
         const session = await loginOffline(trimmed);
-        await finishLogin(session, "no premium");
+        await finishLogin(session);
     } catch (e) {
         setLoginMessage(`Error: ${e}`, true);
     }
@@ -96,8 +99,20 @@ export async function handleMicrosoftLogin() {
     }
     if (msLoginInProgress) return;
 
+    let info;
     try {
-        const info = await loginMicrosoftStart();
+        info = await loginMicrosoftStart();
+    } catch (e) {
+        // Si falla por el Client ID de Azure, salta a la ventana emergente web (Legacy)
+        if (String(e).includes('no reconoce el client_id')) {
+            await microsoftLegacyLogin();
+            return;
+        }
+        setLoginMessage(`Error: ${e}`, true);
+        return;
+    }
+
+    try {
         setLoginMessage(`Andá a ${info.verificationUri} e ingresá el código: ${info.userCode}`);
         setMsLoginUiState(true);
         startCountdown(info.expiresIn);
@@ -105,10 +120,20 @@ export async function handleMicrosoftLogin() {
         const session = await loginMicrosoftPoll(info.deviceCode, info.interval, info.expiresIn);
         stopCountdown();
         setMsLoginUiState(false);
-        await finishLogin(session, "premium");
+        await finishLogin(session);
     } catch (e) {
         stopCountdown();
         setMsLoginUiState(false);
+        setLoginMessage(`Error: ${e}`, true);
+    }
+}
+
+async function microsoftLegacyLogin() {
+    setLoginMessage('Abriendo la ventana de Microsoft...');
+    try {
+        const session = await loginMicrosoftLegacy();
+        await finishLogin(session);
+    } catch (e) {
         setLoginMessage(`Error: ${e}`, true);
     }
 }
@@ -119,16 +144,42 @@ export async function handleMicrosoftLoginCancel() {
     setLoginMessage('Inicio de sesión cancelado.');
 }
 
+function tipoDeCuenta(session) {
+    if (session.userType !== 'msa') return 'no premium';
+    return session.ownsMinecraft ? 'premium' : 'sin licencia';
+}
+
+function setLoggedInUI(session) {
+    if (accountLabel) accountLabel.innerText = session.username;
+    if (accountSublabel) accountSublabel.innerText = `Conectado (${tipoDeCuenta(session)})`;
+    logoutBtn?.classList.remove('hidden');
+}
+
+function setLoggedOutUI() {
+    if (accountLabel) accountLabel.innerText = 'Iniciar sesión';
+    if (accountSublabel) accountSublabel.innerText = '';
+    logoutBtn?.classList.add('hidden');
+}
+
+export async function handleLogout() {
+    const confirmado = await showConfirm(`¿Cerrar la sesión de "${accountLabel?.innerText}"?`);
+    if (!confirmado) return;
+    await clearSession();
+    setAuthSession(null);
+    setLoggedOutUI();
+    updateStatus('Sesión cerrada. Iniciá sesión para poder jugar.');
+}
+
 export function restoreSession(session) {
     if (!session) return false;
-    updateStatus(`Sesión iniciada como ${session.username}`);
-    if (accountLabel) accountLabel.innerText = session.username;
+    updateStatus(`Sesión iniciada como ${session.username} (${tipoDeCuenta(session)})`);
+    setLoggedInUI(session);
     return true;
 }
 
-async function finishLogin(session, tipo) {
-    updateStatus(`Sesión iniciada como ${session.username} (${tipo})`);
-    if (accountLabel) accountLabel.innerText = session.username;
+async function finishLogin(session) {
+    updateStatus(`Sesión iniciada como ${session.username} (${tipoDeCuenta(session)})`);
+    setLoggedInUI(session);
     setLoginMessage('');
     closeLoginModal();
     await saveSession();

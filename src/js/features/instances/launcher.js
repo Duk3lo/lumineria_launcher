@@ -1,4 +1,4 @@
-import { PROFILES, getBaseDirectory, getInstanceDir, AUTH_SESSION, SETTINGS, resetInstanceLibraries, saveProfileToDisk } from '../../core/state.js';
+import { PROFILES, getBaseDirectory, getInstanceDir, AUTH_SESSION, SETTINGS, resetInstanceLibraries, saveProfileToDisk, sessionNeedsRefresh, ensureFreshSession } from '../../core/state.js';
 import { invoke, listen } from '../../core/tauri.js';
 import { updateStatus, updateCardProgress, setCardPlayState, refreshCardStatus, setCardPreparing } from '../../ui/ui.js';
 import { setInstanceRunning, setInstancePreparing } from './instanceDetail.js';
@@ -197,6 +197,18 @@ export async function iniciarJuego(profileId, force = false, isLocal = false, lo
         document.dispatchEvent(new CustomEvent('lumineria:require-login'));
         return;
     }
+    let session = AUTH_SESSION;
+    if (sessionNeedsRefresh()) {
+        updateStatus("Renovando la sesión de Microsoft...");
+        try {
+            session = await ensureFreshSession();
+        } catch (e) {
+            console.warn('No se pudo renovar la sesión de Microsoft:', e);
+            updateStatus("Tu sesión venció. Iniciá sesión de nuevo.");
+            document.dispatchEvent(new CustomEvent('lumineria:require-login'));
+            return;
+        }
+    }
 
     cancelRequested.delete(profileId);
     setCardPreparing(profileId, true);
@@ -237,7 +249,7 @@ export async function iniciarJuego(profileId, force = false, isLocal = false, lo
                     ramMinMb: SETTINGS.ramMinMb, ramMaxMb: SETTINGS.ramMaxMb,
                     extraJavaArgs: SETTINGS.javaArgsExtra || ""
                 },
-                auth: AUTH_SESSION
+                auth: session
             });
         } finally {
             unlisten();

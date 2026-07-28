@@ -7,6 +7,18 @@ pub struct AuthSession {
     pub uuid: String,
     pub access_token: String,
     pub user_type: String,
+    #[serde(default)]
+    pub refresh_token: String,
+    #[serde(default)]
+    pub expires_at: i64,
+    #[serde(default)]
+    pub owns_minecraft: bool,
+    #[serde(default = "default_auth_flow")]
+    pub auth_flow: String,
+}
+
+fn default_auth_flow() -> String {
+    "device_code".to_string()
 }
 
 #[derive(Debug, Serialize, Deserialize)]

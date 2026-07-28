@@ -34,10 +34,16 @@
                 Nueva Instancia</button>
 
             <div class="sidebar-footer">
-                <button id="login-btn" class="account-btn">
-                    <span class="account-avatar">👤</span>
-                    <span id="account-label">Iniciar sesión</span>
-                </button>
+                <div class="account-row" id="account-row">
+                    <button id="login-btn" class="account-btn">
+                        <span class="account-avatar">👤</span>
+                        <span class="account-label-group">
+                            <span id="account-label">Iniciar sesión</span>
+                            <span id="account-sublabel" class="account-sublabel"></span>
+                        </span>
+                    </button>
+                    <button id="logout-btn" class="account-btn logout-btn hidden" title="Cerrar sesión">🚪</button>
+                </div>
                 <button id="console-toggle-btn" class="account-btn">
                     <span class="account-avatar">🖥</span>
                     <span>Consola</span>

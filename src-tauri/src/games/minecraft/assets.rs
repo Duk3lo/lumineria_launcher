@@ -1,4 +1,4 @@
-use futures_util::{StreamExt, TryStreamExt};
+use futures_util::StreamExt;
 use serde_json::Value;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -69,7 +69,7 @@ pub async fn ensure_assets(
     let objects_dir_shared = Arc::new(objects_dir);
     let cancel_shared = cancel.clone();
 
-    futures_util::stream::iter(pending)
+    let results: Vec<Result<(), String>> = futures_util::stream::iter(pending)
         .map(|hash| {
             let client = net::download_client().clone();
             let objects_dir = objects_dir_shared.clone();
@@ -78,9 +78,6 @@ pub async fn ensure_assets(
             let cancel = cancel_shared.clone();
 
             async move {
-                if cancel.load(std::sync::atomic::Ordering::SeqCst) {
-                    return Err("Cancelado por el usuario".to_string());
-                }
                 let prefix = &hash[0..2];
                 let dest_dir = objects_dir.join(prefix);
                 tokio::fs::create_dir_all(&dest_dir)
@@ -95,42 +92,63 @@ pub async fn ensure_assets(
 
                 let mut success = false;
                 let mut last_error = String::new();
-                for _ in 0..3 {
+
+                for attempt in 0..8 {
+                    if cancel.load(std::sync::atomic::Ordering::SeqCst) {
+                        return Err("Cancelado por el usuario".to_string());
+                    }
                     match client.get(&url).send().await {
-                        Ok(resp) if resp.status().is_success() => {
-                            if let Ok(bytes) = resp.bytes().await {
-                                match verify_bytes(&bytes, &hash, "sha1") {
-                                    Ok(()) => {
-                                        if tokio::fs::write(&dest_file, &bytes).await.is_ok() {
-                                            success = true;
-                                            break;
-                                        }
+                        Ok(resp) if resp.status().is_success() => match resp.bytes().await {
+                            Ok(bytes) => match verify_bytes(&bytes, &hash, "sha1") {
+                                Ok(()) => {
+                                    if tokio::fs::write(&dest_file, &bytes).await.is_ok() {
+                                        success = true;
+                                        break;
+                                    } else {
+                                        last_error = "no se pudo escribir a disco".into();
                                     }
-                                    Err(e) => last_error = e,
                                 }
-                            }
-                        }
+                                Err(e) => last_error = e,
+                            },
+                            Err(e) => last_error = format!("error leyendo respuesta: {}", e),
+                        },
                         Ok(resp) => last_error = format!("HTTP {}", resp.status()),
                         Err(e) => last_error = e.to_string(),
                     }
-                    sleep(Duration::from_secs(1)).await;
+
+                    let backoff = (1u64 << attempt.min(4)).min(20);
+                    sleep(Duration::from_secs(backoff)).await;
                 }
 
                 if !success {
                     return Err(format!("Error descargando asset {}: {}", hash, last_error));
                 }
+
                 let n = done.fetch_add(1, Ordering::SeqCst) + 1;
                 let _ = window.emit(
                     "assets-progress",
                     serde_json::json!({ "done": n, "total": total }),
                 );
-
                 Ok::<(), String>(())
             }
         })
         .buffer_unordered(16)
-        .try_for_each(|_| async { Ok(()) })
-        .await?;
+        .collect()
+        .await;
+
+    let failed: Vec<String> = results.into_iter().filter_map(|r| r.err()).collect();
+
+    if failed.iter().any(|e| e == "Cancelado por el usuario") {
+        return Err("Cancelado por el usuario".to_string());
+    }
+    if !failed.is_empty() {
+        return Err(format!(
+            "No se pudieron descargar {} de {} assets. Ejemplo: {}",
+            failed.len(),
+            total,
+            failed[0]
+        ));
+    }
 
     Ok(())
 }

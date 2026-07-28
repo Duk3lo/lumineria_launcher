@@ -6,7 +6,7 @@ import { initConsole } from '../ui/console.js';
 import { iniciarJuego, abrirCarpetaInstancia, requestCancelPreparation } from '../features/instances/launcher.js';
 import { initInstanceDetail, openInstanceDetail } from '../features/instances/instanceDetail.js';
 import { initCreator } from '../features/instances/creator.js';
-import { openLoginModal, closeLoginModal, handleOfflineLogin, handleMicrosoftLogin, handleMicrosoftLoginCancel, restoreSession } from '../features/auth/auth.js';
+import { openLoginModal, closeLoginModal, handleOfflineLogin, handleMicrosoftLogin, handleMicrosoftLoginCancel, restoreSession, handleLogout } from '../features/auth/auth.js';
 import { loadExploreModpacks, initExplore } from '../features/explore/explore.js';
 
 async function checkForUpdates() {
@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const viewInstance = document.getElementById('view-instance');
         document.getElementById('login-microsoft-btn')?.addEventListener('click', handleMicrosoftLogin);
         document.getElementById('login-microsoft-cancel-btn')?.addEventListener('click', handleMicrosoftLoginCancel);
+        document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
         document.getElementById('btn-my-instances').addEventListener('click', (e) => {
             document.querySelectorAll('.game-list li').forEach(li => li.classList.remove('active'));
             e.currentTarget.classList.add('active');

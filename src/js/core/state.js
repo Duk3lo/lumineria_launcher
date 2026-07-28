@@ -7,6 +7,32 @@ export let AUTH_SESSION = null;
 export let SETTINGS = { ramMinMb: 1024, ramMaxMb: 4096, javaArgsExtra: "" };
 
 let baseDirectoryCache = null;
+
+
+export async function loginMicrosoftLegacy() {
+    AUTH_SESSION = await invoke('ms_legacy_login');
+    return AUTH_SESSION;
+}
+
+const REFRESH_MARGIN_SECS = 12 * 3600;
+
+export function sessionNeedsRefresh(session = AUTH_SESSION) {
+    if (!session || session.userType !== 'msa') return false;
+    if (!session.refreshToken) return false;
+    if (!session.expiresAt) return false;
+    return session.expiresAt - Math.floor(Date.now() / 1000) < REFRESH_MARGIN_SECS;
+}
+
+export async function ensureFreshSession() {
+    if (!sessionNeedsRefresh()) return AUTH_SESSION;
+    AUTH_SESSION = await invoke('ms_refresh_session', {
+        refreshToken: AUTH_SESSION.refreshToken,
+        authFlow: AUTH_SESSION.authFlow,
+    });
+    await saveSession();
+    return AUTH_SESSION;
+}
+
 export async function fetchProfiles() {
     const baseDir = await getBaseDirectory();
     PROFILES = await invoke('load_profiles', { baseDir });

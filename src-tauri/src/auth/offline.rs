@@ -11,6 +11,10 @@ pub fn offline_login(username: String) -> Result<AuthSession, String> {
         username,
         access_token: "0".to_string(),
         user_type: "legacy".to_string(),
+        refresh_token: String::new(),
+        expires_at: 0,
+        owns_minecraft: false,
+        auth_flow: "offline".to_string(),
     })
 }
 

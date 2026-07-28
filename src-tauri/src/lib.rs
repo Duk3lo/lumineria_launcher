@@ -126,6 +126,8 @@ pub fn run() {
             auth::microsoft::ms_login_start,
             auth::microsoft::ms_login_poll,
             auth::microsoft::cancel_ms_login,
+            auth::microsoft::ms_refresh_session,
+            auth::microsoft_legacy::ms_legacy_login,
             auth::offline::offline_login,
             auth::session::save_session,
             auth::session::load_session,
