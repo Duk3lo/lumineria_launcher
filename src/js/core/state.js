@@ -4,6 +4,8 @@ import { resolveRemoteEntry, resetLoaderVersionsCache } from './loaderVersions.j
 export let PROFILES = {};
 export let selectedProfileId = null;
 export let AUTH_SESSION = null;
+export let ACCOUNTS = [];
+export let ACTIVE_ACCOUNT_ID = null;
 export let SETTINGS = { ramMinMb: 1024, ramMaxMb: 4096, javaArgsExtra: "" };
 
 let baseDirectoryCache = null;
@@ -105,17 +107,62 @@ export function setAuthSession(session) {
 }
 
 export async function loginOffline(username) {
-    AUTH_SESSION = await invoke('offline_login', { username });
-    return AUTH_SESSION;
+    return await invoke('offline_login', { username });
 }
 
 export async function loginMicrosoftStart() {
     return await invoke('ms_login_start');
 }
 
-export async function loginMicrosoftPoll(deviceCode, interval, expiresIn) {
-    AUTH_SESSION = await invoke('ms_login_poll', { deviceCode, interval, expiresIn });
+export function accountId(session) {
+    return session ? `${session.userType}:${session.uuid}` : null;
+}
+
+function applyStore(store) {
+    ACCOUNTS = store?.accounts ?? [];
+    ACTIVE_ACCOUNT_ID = store?.activeId ?? null;
+    AUTH_SESSION = ACCOUNTS.find(a => accountId(a) === ACTIVE_ACCOUNT_ID) ?? null;
     return AUTH_SESSION;
+}
+
+export async function fetchAccounts() {
+    applyStore(await invoke('list_accounts'));
+    return ACCOUNTS;
+}
+
+export async function restoreAccounts() {
+    return applyStore(await invoke('restore_accounts'));
+}
+
+export async function addAccount(session) {
+    return applyStore(await invoke('add_account', { session }));
+}
+
+export async function removeAccount(id) {
+    return applyStore(await invoke('remove_account', { id }));
+}
+
+export async function setActiveAccount(id) {
+    return applyStore(await invoke('set_active_account', { id }));
+}
+
+export async function deleteVanillaVersion(versionId) {
+    const baseDir = await getBaseDirectory();
+    return await invoke('delete_vanilla_version', { baseDir, versionId });
+}
+
+export async function getInstalledVanillaVersions() {
+    const baseDir = await getBaseDirectory();
+    return await invoke('get_installed_vanilla_versions', { baseDir });
+}
+
+export async function cleanupOldVersion(profileId) {
+    const baseDir = await getBaseDirectory();
+    return await invoke('cleanup_old_version', { baseDir, profileId });
+}
+
+export async function loginMicrosoftPoll(deviceCode, interval, expiresIn) {
+    return await invoke('ms_login_poll', { deviceCode, interval, expiresIn });
 }
 
 export async function saveSession() {

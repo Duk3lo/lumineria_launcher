@@ -36,7 +36,7 @@
             <div class="sidebar-footer">
                 <div class="account-row" id="account-row">
                     <button id="login-btn" class="account-btn">
-                        <span class="account-avatar">👤</span>
+                        <span class="account-avatar" id="account-avatar">👤</span>
                         <span class="account-label-group">
                             <span id="account-label">Iniciar sesión</span>
                             <span id="account-sublabel" class="account-sublabel"></span>
@@ -182,6 +182,16 @@
             </div>
 
             <button id="btn-create-instance" class="primary-btn" style="margin-top: 20px;">Crear e Instalar</button>
+        </div>
+    </div>
+
+    <div id="accounts-modal" class="modal hidden">
+        <div class="modal-box">
+            <button id="accounts-modal-close" class="modal-close">×</button>
+            <h2>Cuentas</h2>
+            <p class="hint-text">Elije tu cuenta, Pudes tener premium y offline al mismo tiempo.</p>
+            <div id="accounts-list" class="accounts-list"></div>
+            <button id="account-add-btn" class="primary-btn">+ Agregar cuenta</button>
         </div>
     </div>
 

@@ -6,7 +6,7 @@ import { initConsole } from '../ui/console.js';
 import { iniciarJuego, abrirCarpetaInstancia, requestCancelPreparation } from '../features/instances/launcher.js';
 import { initInstanceDetail, openInstanceDetail } from '../features/instances/instanceDetail.js';
 import { initCreator } from '../features/instances/creator.js';
-import { openLoginModal, closeLoginModal, handleOfflineLogin, handleMicrosoftLogin, handleMicrosoftLoginCancel, handleLogout, initAuth } from '../features/auth/auth.js';
+import { closeLoginModal, handleOfflineLogin, handleMicrosoftLogin, handleMicrosoftLoginCancel, handleLogout, initAuth, handleAccountButton, closeAccountsModal, handleAddAccount } from '../features/auth/auth.js';
 import { loadExploreModpacks, initExplore } from '../features/explore/explore.js';
 
 async function checkForUpdates() {
@@ -88,7 +88,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.warn('No se pudo cancelar en el backend:', err);
             }
         });
-        document.getElementById('login-btn')?.addEventListener('click', openLoginModal);
+        document.getElementById('login-btn')?.addEventListener('click', handleAccountButton);
+        document.getElementById('accounts-modal-close')?.addEventListener('click', closeAccountsModal);
+        document.getElementById('account-add-btn')?.addEventListener('click', handleAddAccount);
         document.getElementById('login-modal-close')?.addEventListener('click', closeLoginModal);
         document.getElementById('login-offline-btn')?.addEventListener('click', () => {
             const username = document.getElementById('login-username-input')?.value || '';

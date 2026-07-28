@@ -17,6 +17,21 @@ pub struct AuthSession {
     pub auth_flow: String,
 }
 
+impl AuthSession {
+    pub fn account_id(&self) -> String {
+        format!("{}:{}", self.user_type, self.uuid)
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountStore {
+    #[serde(default)]
+    pub accounts: Vec<AuthSession>,
+    #[serde(default)]
+    pub active_id: Option<String>,
+}
+
 fn default_auth_flow() -> String {
     "device_code".to_string()
 }

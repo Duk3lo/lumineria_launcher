@@ -1,4 +1,8 @@
-import { loginOffline, loginMicrosoftStart, loginMicrosoftPoll, loginMicrosoftLegacy, cancelMicrosoftLogin, saveSession, loadSession, ensureFreshSession, clearSession, setAuthSession } from '../../core/state.js';
+import {
+    ACCOUNTS, ACTIVE_ACCOUNT_ID, AUTH_SESSION, accountId,
+    loginOffline, loginMicrosoftStart, loginMicrosoftPoll, loginMicrosoftLegacy, cancelMicrosoftLogin,
+    fetchAccounts, restoreAccounts, addAccount, removeAccount, setActiveAccount,
+} from '../../core/state.js';
 import { updateStatus } from '../../ui/ui.js';
 import { showConfirm } from '../../ui/dialogs.js';
 
@@ -11,49 +15,204 @@ const msCancelBtn = document.getElementById('login-microsoft-cancel-btn');
 const msCountdown = document.getElementById('login-ms-countdown');
 const logoutBtn = document.getElementById('logout-btn');
 const accountSublabel = document.getElementById('account-sublabel');
+const accountAvatar = document.getElementById('account-avatar');
+const accountsModal = document.getElementById('accounts-modal');
+const accountsList = document.getElementById('accounts-list');
 
 const MICROSOFT_LOGIN_ENABLED = true;
-
 const USERNAME_REGEX = /^[A-Za-z0-9_]{3,16}$/;
 
 let countdownInterval = null;
 let msLoginInProgress = false;
-
+let volverASelector = false;
 
 export async function initAuth() {
-    let session;
     try {
-        session = await loadSession();
+        await fetchAccounts();
     } catch (e) {
+        console.warn('No se pudieron leer las cuentas:', e);
+        updateStatus('Error al leer cuentas guardadas.');
         return;
     }
-    if (!session) return;
 
     try {
-        const freshSession = await ensureFreshSession();
-        restoreSession(freshSession);
+        await restoreAccounts();
     } catch (e) {
-        const now = Math.floor(Date.now() / 1000);
-        if (session.userType === 'msa' && session.expiresAt && session.expiresAt > now) {
-            console.warn('No se pudo refrescar la sesión, se usa la guardada:', e);
-            restoreSession(session);
-        } else {
-            console.warn('La sesión guardada ya no es válida:', e);
-            await clearSession();
-            setAuthSession(null);
-        }
+        console.warn('No se pudo renovar la sesión activa:', e);
+    }
+
+    renderAccountUI();
+    if (AUTH_SESSION) {
+        updateStatus(`Sesión iniciada como ${AUTH_SESSION.username} (${tipoDeCuenta(AUTH_SESSION)})`);
     }
 }
 
+function tipoDeCuenta(session) {
+    if (session.userType !== 'msa') return 'no premium';
+    return session.ownsMinecraft ? 'premium' : 'sin licencia';
+}
+
+function avatarDeCuenta(session) {
+    if (session.userType !== 'msa') return '👤';
+    return session.ownsMinecraft ? '👑' : '⚠️';
+}
+
+export function renderAccountUI() {
+    if (AUTH_SESSION) {
+        if (accountLabel) accountLabel.innerText = AUTH_SESSION.username;
+        if (accountSublabel) accountSublabel.innerText = `Conectado (${tipoDeCuenta(AUTH_SESSION)})`;
+        if (accountAvatar) accountAvatar.innerText = avatarDeCuenta(AUTH_SESSION);
+        logoutBtn?.classList.remove('hidden');
+    } else {
+        if (accountLabel) accountLabel.innerText = 'Iniciar sesión';
+        if (accountSublabel) accountSublabel.innerText = '';
+        if (accountAvatar) accountAvatar.innerText = '👤';
+        logoutBtn?.classList.add('hidden');
+    }
+    renderAccountsList();
+}
+
+function renderAccountsList() {
+    if (!accountsList) return;
+    accountsList.replaceChildren();
+
+    if (!ACCOUNTS.length) {
+        const vacio = document.createElement('p');
+        vacio.className = 'hint-text';
+        vacio.innerText = 'Todavía no agregaste ninguna cuenta.';
+        accountsList.appendChild(vacio);
+        return;
+    }
+
+    for (const cuenta of ACCOUNTS) {
+        const id = accountId(cuenta);
+        const fila = document.createElement('div');
+        fila.className = 'account-item';
+        fila.classList.toggle('active', id === ACTIVE_ACCOUNT_ID);
+
+        const seleccionar = document.createElement('button');
+        seleccionar.className = 'account-item-main';
+        seleccionar.addEventListener('click', () => handleSwitchAccount(id));
+
+        const avatar = document.createElement('span');
+        avatar.className = 'account-avatar';
+        avatar.innerText = avatarDeCuenta(cuenta);
+
+        const textos = document.createElement('span');
+        textos.className = 'account-item-text';
+        const nombre = document.createElement('span');
+        nombre.className = 'account-item-name';
+        nombre.innerText = cuenta.username;
+        const tipo = document.createElement('span');
+        tipo.className = 'account-item-type';
+        tipo.innerText = tipoDeCuenta(cuenta);
+        textos.append(nombre, tipo);
+
+        seleccionar.append(avatar, textos);
+
+        if (id === ACTIVE_ACCOUNT_ID) {
+            const marca = document.createElement('span');
+            marca.className = 'account-item-check';
+            marca.innerText = '✓';
+            seleccionar.appendChild(marca);
+        }
+
+        const quitar = document.createElement('button');
+        quitar.className = 'account-item-remove';
+        quitar.title = `Quitar la cuenta ${cuenta.username}`;
+        quitar.innerText = '✕';
+        quitar.addEventListener('click', () => handleRemoveAccount(id, cuenta.username));
+
+        fila.append(seleccionar, quitar);
+        accountsList.appendChild(fila);
+    }
+}
+
+export function handleAccountButton() {
+    if (ACCOUNTS.length) {
+        openAccountsModal();
+    } else {
+        openLoginModal();
+    }
+}
+
+export function openAccountsModal() {
+    renderAccountsList();
+    accountsModal?.classList.remove('hidden');
+}
+
+export function closeAccountsModal() {
+    accountsModal?.classList.add('hidden');
+}
+
+export function handleAddAccount() {
+    volverASelector = true;
+    closeAccountsModal();
+    openLoginModal();
+}
+
+async function handleSwitchAccount(id) {
+    if (id === ACTIVE_ACCOUNT_ID) {
+        closeAccountsModal();
+        return;
+    }
+    try {
+        updateStatus('Cambiando de cuenta...');
+        await setActiveAccount(id);
+    } catch (e) {
+        updateStatus(`No se pudo cambiar de cuenta: ${e}`);
+        return;
+    }
+
+    renderAccountUI();
+
+    if (ACTIVE_ACCOUNT_ID !== id) {
+        updateStatus('Esa cuenta venció y se quitó. Agregala de nuevo para usarla.');
+        return;
+    }
+
+    updateStatus(`Ahora jugás como ${AUTH_SESSION.username} (${tipoDeCuenta(AUTH_SESSION)})`);
+    closeAccountsModal();
+}
+
+async function handleRemoveAccount(id, username) {
+    const confirmado = await showConfirm(`¿Quitar la cuenta "${username}"?`);
+    if (!confirmado) return;
+
+    try {
+        await removeAccount(id);
+    } catch (e) {
+        updateStatus(`No se pudo quitar la cuenta: ${e}`);
+        return;
+    }
+
+    renderAccountUI();
+    updateStatus(AUTH_SESSION
+        ? `Cuenta quitada. Ahora jugás como ${AUTH_SESSION.username}.`
+        : 'Cuenta quitada. Agregá una para poder jugar.');
+}
+
+export async function handleLogout() {
+    if (!AUTH_SESSION) return;
+    await handleRemoveAccount(accountId(AUTH_SESSION), AUTH_SESSION.username);
+}
+
 export function openLoginModal() {
+    setLoginMessage('');
     loginModal?.classList.remove('hidden');
 }
 
 export function closeLoginModal() {
     if (msLoginInProgress) {
         cancelMicrosoftLogin();
+        stopCountdown();
+        setMsLoginUiState(false);
     }
     loginModal?.classList.add('hidden');
+    if (volverASelector) {
+        volverASelector = false;
+        openAccountsModal();
+    }
 }
 
 function setLoginMessage(message, isError = false) {
@@ -129,7 +288,6 @@ export async function handleMicrosoftLogin() {
     try {
         info = await loginMicrosoftStart();
     } catch (e) {
-        // Si falla por el Client ID de Azure, salta a la ventana emergente web (Legacy)
         if (String(e).includes('no reconoce el client_id')) {
             await microsoftLegacyLogin();
             return;
@@ -167,48 +325,26 @@ async function microsoftLegacyLogin() {
 export async function handleMicrosoftLoginCancel() {
     if (!msLoginInProgress) return;
     await cancelMicrosoftLogin();
+    stopCountdown();
+    setMsLoginUiState(false);
     setLoginMessage('Inicio de sesión cancelado.');
 }
 
-function tipoDeCuenta(session) {
-    if (session.userType !== 'msa') return 'no premium';
-    return session.ownsMinecraft ? 'premium' : 'sin licencia';
-}
-
-function setLoggedInUI(session) {
-    if (accountLabel) accountLabel.innerText = session.username;
-    if (accountSublabel) accountSublabel.innerText = `Conectado (${tipoDeCuenta(session)})`;
-    logoutBtn?.classList.remove('hidden');
-}
-
-function setLoggedOutUI() {
-    if (accountLabel) accountLabel.innerText = 'Iniciar sesión';
-    if (accountSublabel) accountSublabel.innerText = '';
-    logoutBtn?.classList.add('hidden');
-}
-
-export async function handleLogout() {
-    const confirmado = await showConfirm(`¿Cerrar la sesión de "${accountLabel?.innerText}"?`);
-    if (!confirmado) return;
-    await clearSession();
-    setAuthSession(null);
-    setLoggedOutUI();
-    updateStatus('Sesión cerrada. Iniciá sesión para poder jugar.');
-}
-
-export function restoreSession(session) {
-    if (!session) return false;
-    updateStatus(`Sesión iniciada como ${session.username} (${tipoDeCuenta(session)})`);
-    setLoggedInUI(session);
-    return true;
-}
-
 async function finishLogin(session) {
-    updateStatus(`Sesión iniciada como ${session.username} (${tipoDeCuenta(session)})`);
-    setLoggedInUI(session);
+    const yaEstaba = ACCOUNTS.some(a => accountId(a) === accountId(session));
+    await addAccount(session);
+
+    if (usernameInput) usernameInput.value = '';
     setLoginMessage('');
+    volverASelector = false;
     closeLoginModal();
-    await saveSession();
+
+    renderAccountUI();
+    updateStatus(yaEstaba
+        ? `Sesión renovada como ${session.username} (${tipoDeCuenta(session)})`
+        : `Sesión iniciada como ${session.username} (${tipoDeCuenta(session)})`);
 }
 
-document.addEventListener('lumineria:require-login', openLoginModal);
+document.addEventListener('lumineria:require-login', () => {
+    handleAccountButton();
+});

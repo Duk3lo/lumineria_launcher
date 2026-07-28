@@ -4,9 +4,19 @@ use std::path::PathBuf;
 
 use crate::net;
 
+fn flatpak_minecraft_dir() -> Option<PathBuf> {
+    std::env::var_os("FLATPAK_ID")?;
+    let data_home = std::env::var_os("XDG_DATA_HOME")?;
+    let dir = PathBuf::from(data_home).join(".minecraft");
+    fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
+
 #[tauri::command]
 pub fn get_minecraft_default_path() -> String {
-    if cfg!(target_os = "windows") {
+    if let Some(dir) = flatpak_minecraft_dir() {
+        dir.to_string_lossy().to_string()
+    } else if cfg!(target_os = "windows") {
         PathBuf::from(std::env::var("APPDATA").unwrap_or_default())
             .join(".minecraft")
             .to_string_lossy()

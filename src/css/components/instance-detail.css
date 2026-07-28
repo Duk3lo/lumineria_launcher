@@ -100,3 +100,8 @@
     min-height: 0;
     overflow-y: auto;
 }
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
