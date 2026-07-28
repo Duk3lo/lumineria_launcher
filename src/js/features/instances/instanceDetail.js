@@ -1,6 +1,6 @@
 import { PROFILES, deleteProfileFromDisk, syncSingleProfileFromDatabase, saveProfileToDisk } from '../../core/state.js';
 import { invoke, listen } from '../../core/tauri.js';
-import { iniciarJuego, abrirCarpetaInstancia, sincronizarModpack, isSyncing } from './launcher.js';
+import { iniciarJuego, abrirCarpetaInstancia, sincronizarModpack, isSyncing, prepararCliente, requestCancelPreparation } from './launcher.js';
 import { renderModsForInstance } from './mods.js';
 import { renderResourcePacksForInstance } from './resourcePacks.js';
 import { drawProfiles } from '../../ui/ui.js';
@@ -69,7 +69,10 @@ export function initInstanceDetail() {
             return;
         }
         if (btnPlayKill.dataset.mode === 'cancel-prep') {
+            requestCancelPreparation(currentDetailProfileId);
             await invoke('cancel_preparation', { profileId: currentDetailProfileId });
+            btnPlayKill.innerText = "Cancelando...";
+            btnPlayKill.disabled = true;
             return;
         }
         iniciarJuego(currentDetailProfileId, false, currentDetailIsLocal, currentDetailLocalProfile);
@@ -183,7 +186,14 @@ export function initInstanceDetail() {
         try {
             const changed = await syncSingleProfileFromDatabase(currentDetailProfileId);
             await marcarComprobado(currentDetailProfileId);
+
             if (changed) {
+                statusText.innerText = "Nueva versión detectada, descargando...";
+                await prepararCliente(currentDetailProfileId, getCurrentProfile());
+                if (getCurrentProfile()?.packwiz_url) {
+                    statusText.innerText = "Sincronizando mods...";
+                    await sincronizarModpack(currentDetailProfileId, { silent: true });
+                }
                 statusText.innerText = "¡Actualizado! Lista para jugar con la nueva versión.";
                 drawProfiles();
             } else {
@@ -273,6 +283,15 @@ async function runSyncForCurrentInstance({ silent = false } = {}) {
             try { changed = await syncSingleProfileFromDatabase(profileId); } catch (e) { }
         }
 
+        if (changed) {
+            if (!silent) statusText.innerText = "Descargando nueva versión del cliente...";
+            try {
+                await prepararCliente(profileId, getCurrentProfile());
+            } catch (e) {
+                console.warn('No se pudo preparar el nuevo cliente:', e);
+            }
+        }
+
         if (profile.packwiz_url) {
             if (!silent) statusText.innerText = "Sincronizando mods...";
             await sincronizarModpack(profileId, { silent: true });
@@ -316,6 +335,7 @@ function setBusyState(busy) {
 }
 
 function updatePlayKillButton(profileId) {
+    btnPlayKill.disabled = false;
     const isRunning = INSTANCE_STATE[profileId]?.isRunning || false;
     if (isRunning) {
         btnPlayKill.innerText = "Detener / Kill";

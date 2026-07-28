@@ -1,79 +1,38 @@
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
-
 use crate::auth::models::AuthSession;
+use keyring::Entry;
 
-fn session_path(base_dir: &str) -> PathBuf {
-    PathBuf::from(base_dir).join("session.json")
-}
+const SERVICE_NAME: &str = "Lumineria Launcher";
+const ACCOUNT_KEY: &str = "current_session";
 
-#[cfg(unix)]
-async fn write_session_secure(path: &Path, data: &[u8]) -> std::io::Result<()> {
-    use tokio::io::AsyncWriteExt;
-
-    let tmp_path = path.with_extension("json.tmp");
-
-    let mut file = tokio::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(&tmp_path)
-        .await?;
-
-    file.write_all(data).await?;
-    file.sync_all().await?;
-    drop(file);
-
-    tokio::fs::rename(&tmp_path, path).await?; // escritura atómica
-
-    // Por si el archivo ya existía en disco con 644 de una versión anterior
-    tokio::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)).await?;
-    Ok(())
-}
-
-#[cfg(not(unix))]
-async fn write_session_secure(path: &Path, data: &[u8]) -> std::io::Result<()> {
-    tokio::fs::write(path, data).await
+fn entry() -> Result<Entry, String> {
+    Entry::new(SERVICE_NAME, ACCOUNT_KEY).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn save_session(base_dir: String, session: AuthSession) -> Result<(), String> {
-    let path = session_path(&base_dir);
-    if let Some(p) = path.parent() {
-        tokio::fs::create_dir_all(p).await.map_err(|e| e.to_string())?;
-    }
-    let raw = serde_json::to_string_pretty(&session).map_err(|e| e.to_string())?;
-    write_session_secure(&path, raw.as_bytes())
-        .await
-        .map_err(|e| e.to_string())
+pub fn save_session(base_dir: String, session: AuthSession) -> Result<(), String> {
+    let _ = base_dir; // ya no se usa: el token vive en el almacén seguro del SO
+    let raw = serde_json::to_string(&session).map_err(|e| e.to_string())?;
+    entry()?.set_password(&raw).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn load_session(base_dir: String) -> Result<Option<AuthSession>, String> {
-    let path = session_path(&base_dir);
-    if !path.exists() {
-        return Ok(None);
-    }
-    #[cfg(unix)]
-    {
-        if let Ok(meta) = tokio::fs::metadata(&path).await {
-            if meta.permissions().mode() & 0o777 != 0o600 {
-                let _ = tokio::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).await;
-            }
+pub fn load_session(base_dir: String) -> Result<Option<AuthSession>, String> {
+    let _ = base_dir;
+    match entry()?.get_password() {
+        Ok(raw) => {
+            let session = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+            Ok(Some(session))
         }
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.to_string()),
     }
-
-    let raw = tokio::fs::read_to_string(&path).await.map_err(|e| e.to_string())?;
-    Ok(serde_json::from_str(&raw).ok())
 }
 
 #[tauri::command]
-pub async fn clear_session(base_dir: String) -> Result<(), String> {
-    let path = session_path(&base_dir);
-    if path.exists() {
-        tokio::fs::remove_file(&path).await.map_err(|e| e.to_string())?;
+pub fn clear_session(base_dir: String) -> Result<(), String> {
+    let _ = base_dir;
+    match entry()?.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(e.to_string()),
     }
-    Ok(())
 }

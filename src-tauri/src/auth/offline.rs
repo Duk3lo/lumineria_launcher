@@ -16,7 +16,11 @@ pub fn offline_login(username: String) -> Result<AuthSession, String> {
 
 fn is_valid_minecraft_username(username: &str) -> bool {
     let len = username.chars().count();
-    len >= 3 && len <= 16 && username.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    len >= 3
+        && len <= 16
+        && username
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 fn offline_uuid(username: &str) -> String {

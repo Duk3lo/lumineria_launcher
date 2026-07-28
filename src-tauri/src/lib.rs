@@ -3,37 +3,33 @@ mod config;
 mod discord;
 mod downloader;
 mod games;
+mod hashutil;
 mod instance;
 mod ipc;
 mod java;
 mod net;
 mod presence;
 mod settings;
-mod hashutil;
-
 use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::Manager;
 use tokio::sync::Mutex;
-
 pub struct AppState {
     pub running_processes: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>>,
     pub running_instances: Arc<Mutex<Vec<presence::RunningInstance>>>,
     pub discord: discord::DiscordHandle,
     pub ipc_port: u16,
     pub preparing_cancel: Arc<Mutex<HashMap<String, Arc<std::sync::atomic::AtomicBool>>>>,
+    pub ms_login_cancel: Arc<std::sync::atomic::AtomicBool>,
 }
-
 #[cfg(debug_assertions)]
 fn prevent_default() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri_plugin_prevent_default::Builder::new().build()
 }
-
 #[cfg(not(debug_assertions))]
 fn prevent_default() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri_plugin_prevent_default::Builder::new().build()
 }
-
 #[tauri::command]
 fn get_default_path(app: tauri::AppHandle) -> String {
     app.path()
@@ -46,19 +42,16 @@ fn get_default_path(app: tauri::AppHandle) -> String {
         .to_string_lossy()
         .to_string()
 }
-
 #[tauri::command]
 async fn ensure_dir(path: String) -> Result<(), String> {
     tokio::fs::create_dir_all(&path)
         .await
         .map_err(|e| e.to_string())
 }
-
 #[tauri::command]
 fn open_folder(path: String) -> Result<(), String> {
     open::that(path).map_err(|e| e.to_string())
 }
-
 #[tauri::command]
 async fn kill_instance(
     profile_id: String,
@@ -70,7 +63,6 @@ async fn kill_instance(
     }
     Ok(())
 }
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     dotenvy::dotenv().ok();
@@ -81,12 +73,10 @@ pub fn run() {
             let discord_for_ipc = discord_handle.clone();
             let running_instances = Arc::new(Mutex::new(Vec::new()));
             let running_instances_for_ipc = running_instances.clone();
-
             let ipc_port = tauri::async_runtime::block_on(async move {
                 ipc::start_ipc_bridge(discord_for_ipc, running_instances_for_ipc).await
             })
             .expect("no se pudo iniciar el puente IPC local");
-
             discord_handle.send(discord::DiscordCommand::UpdateActivity {
                 details: "En el launcher".into(),
                 state: "Explorando modpacks".into(),
@@ -97,13 +87,13 @@ pub fn run() {
                 start_timestamp: Some(discord::now_ts()),
                 party_size: None,
             });
-
             app.manage(AppState {
                 running_processes: Arc::new(Mutex::new(HashMap::new())),
                 running_instances,
                 discord: discord_handle,
                 ipc_port,
                 preparing_cancel: Arc::new(Mutex::new(HashMap::new())),
+                ms_login_cancel: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             });
             Ok(())
         })
@@ -135,6 +125,7 @@ pub fn run() {
             // --- Auth ---
             auth::microsoft::ms_login_start,
             auth::microsoft::ms_login_poll,
+            auth::microsoft::cancel_ms_login,
             auth::offline::offline_login,
             auth::session::save_session,
             auth::session::load_session,

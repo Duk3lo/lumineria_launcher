@@ -1,4 +1,5 @@
 import { invoke } from './tauri.js';
+import { resolveRemoteEntry, resetLoaderVersionsCache } from './loaderVersions.js';
 
 export let PROFILES = {};
 export let selectedProfileId = null;
@@ -118,6 +119,7 @@ export async function deleteProfileFromDisk(profileId) {
     delete PROFILES[profileId];
 }
 
+// state.js
 export async function syncInstalledProfilesFromDatabase() {
     let database;
     try {
@@ -128,14 +130,27 @@ export async function syncInstalledProfilesFromDatabase() {
         return;
     }
 
+    resetLoaderVersionsCache();
     const FIELDS_TO_SYNC = ['title', 'mc_version', 'version_id', 'java_version', 'loader_name', 'loader_url', 'packwiz_url', 'image'];
 
     for (const id of Object.keys(PROFILES)) {
         const local = PROFILES[id];
-        if (!local.is_official) continue;
+        const wasOfficial = local.is_official === true;   // guardamos el estado ANTES de mutar
 
-        const remote = database[id];
+        if (!wasOfficial) {
+            if (database[id] === undefined) continue;
+            local.is_official = true;
+        }
+
+        let remote = database[id];
         if (!remote) continue;
+
+        try {
+            remote = await resolveRemoteEntry(remote);
+        } catch (e) {
+            console.warn(`No se pudo resolver la build más reciente de "${local.title}":`, e);
+            continue;
+        }
 
         let changed = false;
         const merged = { ...local };
@@ -150,7 +165,10 @@ export async function syncInstalledProfilesFromDatabase() {
                 changed = true;
             }
         }
-        if (!changed) continue;
+        merged.is_official = true;
+
+        if (!changed && wasOfficial) continue;   // ahora sí, solo salta si YA estaba migrada Y al día
+
         if (versionChanged || loaderChanged || javaChanged) {
             try {
                 const instanceDir = await getInstanceDir(id);
@@ -161,10 +179,9 @@ export async function syncInstalledProfilesFromDatabase() {
         }
 
         await saveProfileToDisk(id, merged);
-        console.log(`"${merged.title}" actualizado automáticamente desde el catálogo.`);
+        console.log(`"${merged.title}" actualizado/migrado automáticamente desde el catálogo.`);
     }
 }
-
 
 export async function syncSingleProfileFromDatabase(id) {
     let database;
@@ -175,8 +192,11 @@ export async function syncSingleProfileFromDatabase(id) {
         throw new Error("No se pudo conectar al servidor para actualizar.");
     }
 
-    const remote = database[id];
+    let remote = database[id];
     if (!remote) throw new Error("Esta instancia no existe en la base de datos oficial.");
+
+    resetLoaderVersionsCache();
+    remote = await resolveRemoteEntry(remote);
 
     const local = PROFILES[id];
     let changed = false;
@@ -204,4 +224,8 @@ export async function syncSingleProfileFromDatabase(id) {
 
     await saveProfileToDisk(id, merged);
     return changed;
+}
+
+export async function cancelMicrosoftLogin() {
+    return await invoke('cancel_ms_login');
 }

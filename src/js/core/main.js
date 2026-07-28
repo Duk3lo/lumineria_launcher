@@ -1,12 +1,12 @@
 import { fetchProfiles, loadSession, syncInstalledProfilesFromDatabase } from './state.js';
-import { updater, tauriProcess } from './tauri.js';
+import { updater, tauriProcess, invoke } from './tauri.js';
 import { drawProfiles, updateStatus, initSettingsPanel, initInstanceEventListeners } from '../ui/ui.js';
 import { initDialogs } from '../ui/dialogs.js';
 import { initConsole } from '../ui/console.js';
-import { iniciarJuego, abrirCarpetaInstancia } from '../features/instances/launcher.js';
+import { iniciarJuego, abrirCarpetaInstancia, requestCancelPreparation } from '../features/instances/launcher.js';
 import { initInstanceDetail, openInstanceDetail } from '../features/instances/instanceDetail.js';
 import { initCreator } from '../features/instances/creator.js';
-import { openLoginModal, closeLoginModal, handleOfflineLogin, handleMicrosoftLogin, restoreSession } from '../features/auth/auth.js';
+import { openLoginModal, closeLoginModal, handleOfflineLogin, handleMicrosoftLogin, handleMicrosoftLoginCancel, restoreSession } from '../features/auth/auth.js';
 import { loadExploreModpacks, initExplore } from '../features/explore/explore.js';
 
 async function checkForUpdates() {
@@ -24,6 +24,13 @@ async function checkForUpdates() {
     }
 }
 
+function withTimeout(promise, ms) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo de espera agotado')), ms))
+    ]);
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         updateStatus("Cargando instancias locales...");
@@ -33,14 +40,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         initInstanceEventListeners();
         await initSettingsPanel();
         await fetchProfiles();
-        await syncInstalledProfilesFromDatabase();
         drawProfiles();
         initDialogs();
         initConsole();
 
+        withTimeout(syncInstalledProfilesFromDatabase(), 8000)
+            .then(() => drawProfiles())
+            .catch(e => console.warn('Catálogo remoto no disponible, se continúa con datos locales:', e));
+
         const viewGrid = document.getElementById('view-grid');
         const viewExplore = document.getElementById('view-explore');
         const viewInstance = document.getElementById('view-instance');
+        document.getElementById('login-microsoft-btn')?.addEventListener('click', handleMicrosoftLogin);
+        document.getElementById('login-microsoft-cancel-btn')?.addEventListener('click', handleMicrosoftLoginCancel);
         document.getElementById('btn-my-instances').addEventListener('click', (e) => {
             document.querySelectorAll('.game-list li').forEach(li => li.classList.remove('active'));
             e.currentTarget.classList.add('active');
@@ -67,6 +79,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.addEventListener('lumineria:open-mods', (e) => {
             openInstanceDetail(e.detail.id);
             document.querySelector('.tab-btn[data-tab="tab-mods"]')?.click();
+        });
+        document.addEventListener('lumineria:cancel-preparation', async (e) => {
+            requestCancelPreparation(e.detail.id);
+            try {
+                await invoke('cancel_preparation', { profileId: e.detail.id });
+            } catch (err) {
+                console.warn('No se pudo cancelar en el backend:', err);
+            }
         });
         document.getElementById('login-btn')?.addEventListener('click', openLoginModal);
         document.getElementById('login-modal-close')?.addEventListener('click', closeLoginModal);

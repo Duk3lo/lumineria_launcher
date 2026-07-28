@@ -3,6 +3,7 @@ import { invoke } from '../../core/tauri.js';
 import { drawProfiles, updateStatus } from '../../ui/ui.js';
 import { showAlert } from '../../ui/dialogs.js';
 import { setSafeBackgroundImage } from '../../core/domSafety.js';
+import { resolveRemoteEntry, resetLoaderVersionsCache } from '../../core/loaderVersions.js';
 
 function buildModpackCard(db_id, pack, isInstalled) {
     const imageUrl = pack.image || 'assets/logo.png';
@@ -52,9 +53,16 @@ function buildModpackCard(db_id, pack, isInstalled) {
         installBtn.addEventListener('click', async () => {
             installBtn.textContent = "Instalando...";
             installBtn.disabled = true;
-            await saveProfileToDisk(db_id, pack);
-            updateStatus(`¡${pack.title} añadido correctamente!`);
-            document.getElementById('btn-my-instances').click();
+            try {
+                const resolvedPack = await resolveRemoteEntry(pack);
+                await saveProfileToDisk(db_id, { ...resolvedPack, is_official: true });
+                updateStatus(`¡${pack.title} añadido correctamente!`);
+                document.getElementById('btn-my-instances').click();
+            } catch (e) {
+                installBtn.textContent = '⬇ Instalar Cliente';
+                installBtn.disabled = false;
+                await showAlert('No se pudo determinar la versión a instalar: ' + e.message);
+            }
         });
     }
 
@@ -91,6 +99,7 @@ export function initExplore() {
 }
 
 export async function loadExploreModpacks() {
+    resetLoaderVersionsCache();
     const exploreGrid = document.getElementById('explore-grid');
     exploreGrid.textContent = '';
 
