@@ -58,6 +58,3 @@ dotenvy = "0.15.7"
 
 sha2 = "0.11.0"
 sha1 = "0.11.0"
-
-
-minisign-verify = "0.2"

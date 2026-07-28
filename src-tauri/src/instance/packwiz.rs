@@ -1,9 +1,6 @@
 use crate::hashutil::{hash_bytes, verify_bytes};
-use minisign_verify::{PublicKey, Signature};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-
-const PACKWIZ_PUBLIC_KEY: &str = "RWTNj+z2kj55F5kgqyC2aWuei+iPmn9zRHLWiOraUDIWAEs6X1UYLjKl";
 
 #[derive(Debug, Deserialize)]
 struct PackToml {
@@ -146,19 +143,6 @@ pub async fn sync_packwiz_modpack(
         .text()
         .await
         .map_err(|e| e.to_string())?;
-
-    let sig_url = format!("{}.minisig", index_url);
-    let sig_raw = client
-        .get(&sig_url)
-        .send()
-        .await
-        .map_err(|e| format!("no se pudo descargar la firma de index.toml: {e}"))?
-        .text()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    verify_index_signature(index_raw.as_bytes(), &sig_raw)
-        .map_err(|e| format!("Sincronización abortada: {e}"))?;
 
     let index: IndexToml =
         toml::from_str(&index_raw).map_err(|e| format!("index.toml inválido: {}", e))?;
@@ -311,11 +295,4 @@ pub async fn sync_packwiz_modpack(
     }
 
     Ok(results)
-}
-
-fn verify_index_signature(index_bytes: &[u8], sig_text: &str) -> Result<(), String> {
-    let pk = PublicKey::from_base64(PACKWIZ_PUBLIC_KEY).map_err(|e| e.to_string())?;
-    let sig = Signature::decode(sig_text.trim()).map_err(|e| e.to_string())?;
-    pk.verify(index_bytes, &sig, false)
-        .map_err(|_| "firma de index.toml inválida — posible manipulación del servidor".to_string())
 }
