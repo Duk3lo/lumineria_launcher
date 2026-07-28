@@ -115,7 +115,6 @@ pub async fn ensure_assets(
                         Ok(resp) => last_error = format!("HTTP {}", resp.status()),
                         Err(e) => last_error = e.to_string(),
                     }
-
                     let backoff = (1u64 << attempt.min(4)).min(20);
                     sleep(Duration::from_secs(backoff)).await;
                 }
