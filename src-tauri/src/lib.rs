@@ -132,6 +132,7 @@ pub fn run() {
             auth::session::save_session,
             auth::session::load_session,
             auth::session::clear_session,
+            auth::session::restore_session,
             // --- Instance ---
             instance::status::get_instance_status,
             instance::mods::list_mods,
