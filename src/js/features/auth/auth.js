@@ -13,7 +13,6 @@ const usernameInput = document.getElementById('login-username-input');
 const msLoginBtn = document.getElementById('login-microsoft-btn');
 const msCancelBtn = document.getElementById('login-microsoft-cancel-btn');
 const msCountdown = document.getElementById('login-ms-countdown');
-const logoutBtn = document.getElementById('logout-btn');
 const accountSublabel = document.getElementById('account-sublabel');
 const accountAvatar = document.getElementById('account-avatar');
 const accountsModal = document.getElementById('accounts-modal');
@@ -64,17 +63,12 @@ function avatarDeCuenta(session) {
 export function renderAccountUI() {
     if (AUTH_SESSION) {
         if (accountLabel) accountLabel.innerText = AUTH_SESSION.username;
-        // Solo el tipo: "Conectado (sin licencia)" no entra en la barra lateral
-        // y quedaba recortado. Que haya nombre y botón de salir ya dice que hay
-        // sesión abierta.
         if (accountSublabel) accountSublabel.innerText = capitalizar(tipoDeCuenta(AUTH_SESSION));
         if (accountAvatar) accountAvatar.innerText = avatarDeCuenta(AUTH_SESSION);
-        logoutBtn?.classList.remove('hidden');
     } else {
         if (accountLabel) accountLabel.innerText = 'Iniciar sesión';
         if (accountSublabel) accountSublabel.innerText = '';
         if (accountAvatar) accountAvatar.innerText = '👤';
-        logoutBtn?.classList.add('hidden');
     }
     renderAccountsList();
 }
@@ -126,7 +120,7 @@ function renderAccountsList() {
 
         const quitar = document.createElement('button');
         quitar.className = 'account-item-remove';
-        quitar.title = `Quitar la cuenta ${cuenta.username}`;
+        quitar.title = `Cerrar la sesión de ${cuenta.username}`;
         quitar.innerText = '✕';
         quitar.addEventListener('click', () => handleRemoveAccount(id, cuenta.username));
 
@@ -199,11 +193,25 @@ async function handleRemoveAccount(id, username) {
         : 'Cuenta quitada. Agregá una para poder jugar.');
 }
 
-export async function handleLogout() {
-    if (!AUTH_SESSION) return;
-    await handleRemoveAccount(accountId(AUTH_SESSION), AUTH_SESSION.username);
-}
+async function handleRemoveAccount(id, username) {
+    const confirmado = await showConfirm(
+        `Se va a cerrar la sesión de "${username}" y la cuenta se quita del launcher.`,
+        '¿Estás seguro?',
+    );
+    if (!confirmado) return;
 
+    try {
+        await removeAccount(id);
+    } catch (e) {
+        updateStatus(`No se pudo quitar la cuenta: ${e}`);
+        return;
+    }
+
+    renderAccountUI();
+    updateStatus(AUTH_SESSION
+        ? `Sesión cerrada. Ahora jugás como ${AUTH_SESSION.username}.`
+        : 'Sesión cerrada. Agregá una cuenta para poder jugar.');
+}
 export function openLoginModal() {
     setLoginMessage('');
     loginModal?.classList.remove('hidden');

@@ -59,12 +59,3 @@
     font-size: 0.7rem;
     color: var(--text-dim, #999);
 }
-
-.logout-btn {
-    flex: 0 0 44px;
-    width: 44px;
-    padding: 0;
-    justify-content: center;
-    font-size: 1.1rem;
-    line-height: 1;
-}
