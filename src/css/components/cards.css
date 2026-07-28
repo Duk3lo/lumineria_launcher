@@ -1,6 +1,10 @@
 .profiles-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    /* La grilla ocupa toda la altura por el flex:1 de abajo. Sin esto las filas
+       se estiran para repartirse ese alto, y con una sola instancia la tarjeta
+       queda del porte de la ventana. */
+    align-content: start;
     gap: 20px;
     width: 100%;
     max-width: 100%;

@@ -52,6 +52,10 @@ function tipoDeCuenta(session) {
     return session.ownsMinecraft ? 'premium' : 'sin licencia';
 }
 
+function capitalizar(texto) {
+    return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
 function avatarDeCuenta(session) {
     if (session.userType !== 'msa') return '👤';
     return session.ownsMinecraft ? '👑' : '⚠️';
@@ -60,7 +64,10 @@ function avatarDeCuenta(session) {
 export function renderAccountUI() {
     if (AUTH_SESSION) {
         if (accountLabel) accountLabel.innerText = AUTH_SESSION.username;
-        if (accountSublabel) accountSublabel.innerText = `Conectado (${tipoDeCuenta(AUTH_SESSION)})`;
+        // Solo el tipo: "Conectado (sin licencia)" no entra en la barra lateral
+        // y quedaba recortado. Que haya nombre y botón de salir ya dice que hay
+        // sesión abierta.
+        if (accountSublabel) accountSublabel.innerText = capitalizar(tipoDeCuenta(AUTH_SESSION));
         if (accountAvatar) accountAvatar.innerText = avatarDeCuenta(AUTH_SESSION);
         logoutBtn?.classList.remove('hidden');
     } else {
