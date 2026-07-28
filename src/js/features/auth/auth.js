@@ -1,4 +1,4 @@
-import { loginOffline, loginMicrosoftStart, loginMicrosoftPoll, loginMicrosoftLegacy, cancelMicrosoftLogin, saveSession, clearSession, setAuthSession } from '../../core/state.js';
+import { loginOffline, loginMicrosoftStart, loginMicrosoftPoll, loginMicrosoftLegacy, cancelMicrosoftLogin, saveSession, loadSession, ensureFreshSession, clearSession, setAuthSession } from '../../core/state.js';
 import { updateStatus } from '../../ui/ui.js';
 import { showConfirm } from '../../ui/dialogs.js';
 
@@ -18,6 +18,32 @@ const USERNAME_REGEX = /^[A-Za-z0-9_]{3,16}$/;
 
 let countdownInterval = null;
 let msLoginInProgress = false;
+
+
+export async function initAuth() {
+    let session;
+    try {
+        session = await loadSession();
+    } catch (e) {
+        return;
+    }
+    if (!session) return;
+
+    try {
+        const freshSession = await ensureFreshSession();
+        restoreSession(freshSession);
+    } catch (e) {
+        const now = Math.floor(Date.now() / 1000);
+        if (session.userType === 'msa' && session.expiresAt && session.expiresAt > now) {
+            console.warn('No se pudo refrescar la sesión, se usa la guardada:', e);
+            restoreSession(session);
+        } else {
+            console.warn('La sesión guardada ya no es válida:', e);
+            await clearSession();
+            setAuthSession(null);
+        }
+    }
+}
 
 export function openLoginModal() {
     loginModal?.classList.remove('hidden');

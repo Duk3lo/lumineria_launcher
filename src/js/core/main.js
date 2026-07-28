@@ -1,4 +1,4 @@
-import { fetchProfiles, loadSession, syncInstalledProfilesFromDatabase } from './state.js';
+import { fetchProfiles, syncInstalledProfilesFromDatabase } from './state.js';
 import { updater, tauriProcess, invoke } from './tauri.js';
 import { drawProfiles, updateStatus, initSettingsPanel, initInstanceEventListeners } from '../ui/ui.js';
 import { initDialogs } from '../ui/dialogs.js';
@@ -6,7 +6,7 @@ import { initConsole } from '../ui/console.js';
 import { iniciarJuego, abrirCarpetaInstancia, requestCancelPreparation } from '../features/instances/launcher.js';
 import { initInstanceDetail, openInstanceDetail } from '../features/instances/instanceDetail.js';
 import { initCreator } from '../features/instances/creator.js';
-import { openLoginModal, closeLoginModal, handleOfflineLogin, handleMicrosoftLogin, handleMicrosoftLoginCancel, restoreSession, handleLogout } from '../features/auth/auth.js';
+import { openLoginModal, closeLoginModal, handleOfflineLogin, handleMicrosoftLogin, handleMicrosoftLoginCancel, handleLogout, initAuth } from '../features/auth/auth.js';
 import { loadExploreModpacks, initExplore } from '../features/explore/explore.js';
 
 async function checkForUpdates() {
@@ -72,8 +72,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             viewExplore.classList.remove('hidden');
             loadExploreModpacks();
         });
-        const savedSession = await loadSession();
-        if (savedSession) restoreSession(savedSession);
+        await initAuth();
         document.addEventListener('lumineria:play-profile', (e) => iniciarJuego(e.detail.id, e.detail.force, e.detail.isLocal, e.detail.localProfile));
         document.addEventListener('lumineria:open-folder', (e) => abrirCarpetaInstancia(e.detail.id));
         document.addEventListener('lumineria:open-instance-detail', (e) => openInstanceDetail(e.detail.id, e.detail.isLocal, e.detail.localProfile));
