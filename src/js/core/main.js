@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         initInstanceEventListeners();
         await initSettingsPanel();
         await fetchProfiles();
-        drawProfiles();
+        drawProfiles('custom');
         initDialogs();
         initConsole();
 
@@ -51,8 +51,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const viewGrid = document.getElementById('view-grid');
         const viewExplore = document.getElementById('view-explore');
         const viewInstance = document.getElementById('view-instance');
+        const gameTitle = document.getElementById('game-title');
+        const gameSubtitle = document.getElementById('game-subtitle');
+
         document.getElementById('login-microsoft-btn')?.addEventListener('click', handleMicrosoftLogin);
         document.getElementById('login-microsoft-cancel-btn')?.addEventListener('click', handleMicrosoftLoginCancel);
+
         document.getElementById('btn-my-instances').addEventListener('click', (e) => {
             document.querySelectorAll('.game-list li').forEach(li => li.classList.remove('active'));
             e.currentTarget.classList.add('active');
@@ -60,8 +64,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             viewExplore.classList.add('hidden');
             viewInstance.classList.add('hidden');
             viewGrid.classList.remove('hidden');
-            drawProfiles();
+
+            if (gameTitle) gameTitle.innerText = 'Tus Instancias';
+            if (gameSubtitle) gameSubtitle.innerText = 'Selecciona una instancia y prepárate para la aventura.';
+
+            drawProfiles('custom'); // Carga solo tus instancias
         });
+
+        document.getElementById('btn-local-instances')?.addEventListener('click', (e) => {
+            document.querySelectorAll('.game-list li').forEach(li => li.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+
+            viewExplore.classList.add('hidden');
+            viewInstance.classList.add('hidden');
+            viewGrid.classList.remove('hidden');
+
+            if (gameTitle) gameTitle.innerText = 'Instancias Locales';
+            if (gameSubtitle) gameSubtitle.innerText = 'Instancias detectadas en tu carpeta .minecraft original.';
+
+            drawProfiles('local');
+        });
+
         document.getElementById('btn-explore-modpacks').addEventListener('click', (e) => {
             document.querySelectorAll('.game-list li').forEach(li => li.classList.remove('active'));
             e.currentTarget.classList.add('active');

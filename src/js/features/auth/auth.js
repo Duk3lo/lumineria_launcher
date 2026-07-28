@@ -177,23 +177,6 @@ async function handleSwitchAccount(id) {
 }
 
 async function handleRemoveAccount(id, username) {
-    const confirmado = await showConfirm(`¿Quitar la cuenta "${username}"?`);
-    if (!confirmado) return;
-
-    try {
-        await removeAccount(id);
-    } catch (e) {
-        updateStatus(`No se pudo quitar la cuenta: ${e}`);
-        return;
-    }
-
-    renderAccountUI();
-    updateStatus(AUTH_SESSION
-        ? `Cuenta quitada. Ahora jugás como ${AUTH_SESSION.username}.`
-        : 'Cuenta quitada. Agregá una para poder jugar.');
-}
-
-async function handleRemoveAccount(id, username) {
     const confirmado = await showConfirm(
         `Se va a cerrar la sesión de "${username}" y la cuenta se quita del launcher.`,
         '¿Estás seguro?',
@@ -212,6 +195,8 @@ async function handleRemoveAccount(id, username) {
         ? `Sesión cerrada. Ahora jugás como ${AUTH_SESSION.username}.`
         : 'Sesión cerrada. Agregá una cuenta para poder jugar.');
 }
+
+
 export function openLoginModal() {
     setLoginMessage('');
     loginModal?.classList.remove('hidden');

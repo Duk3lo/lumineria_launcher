@@ -46,10 +46,15 @@ export function updateStatus(text) {
     if (statusText) statusText.innerText = text;
 }
 
-export async function drawProfiles() {
+let currentViewType = 'custom';
+export async function drawProfiles(type = null) {
+    if (type) currentViewType = type;
+    else type = currentViewType;
+
     if (!profilesGrid) return;
     closeAllDropdowns();
     profilesGrid.innerHTML = '';
+    
     const skeleton = document.createElement('div');
     skeleton.className = 'profiles-loading';
     skeleton.innerHTML = `
@@ -59,29 +64,40 @@ export async function drawProfiles() {
     `;
     profilesGrid.appendChild(skeleton);
 
-    let vanillaLocales = {};
-    try {
-        vanillaLocales = await invoke('get_installed_vanilla_versions');
-    } catch (e) {
-        console.warn("No se pudieron buscar versiones de .minecraft:", e);
+    let profilesToRender = [];
+
+    if (type === 'custom') {
+        profilesGrid.innerHTML = '';
+        if (Object.keys(PROFILES).length > 0) {
+            renderSection("Mis Instancias Personalizadas", PROFILES, false);
+            profilesToRender = Object.keys(PROFILES);
+        }
+    } else if (type === 'local') {
+        let vanillaLocales = {};
+        try {
+            vanillaLocales = await invoke('get_installed_vanilla_versions');
+        } catch (e) {
+            console.warn("No se pudieron buscar versiones de .minecraft:", e);
+        }
+
+        profilesGrid.innerHTML = '';
+        if (Object.keys(vanillaLocales).length > 0) {
+            renderSection("Detectado en .minecraft (PC)", vanillaLocales, true);
+            profilesToRender = Object.keys(vanillaLocales);
+        }
     }
 
-    profilesGrid.innerHTML = '';
-
-    if (Object.keys(PROFILES).length > 0) {
-        renderSection("Mis Instancias Personalizadas", PROFILES, false);
-    }
-    if (Object.keys(vanillaLocales).length > 0) {
-        renderSection("Detectado en .minecraft (PC)", vanillaLocales, true);
-    }
     if (profilesGrid.innerHTML === '') {
         const emptyMsg = document.createElement('p');
         emptyMsg.className = 'mods-empty-state';
-        emptyMsg.textContent = 'No hay instancias. ¡Crea una nueva o instala una oficial!';
+        emptyMsg.textContent = type === 'custom' 
+            ? 'No hay instancias. ¡Crea una nueva o instala una oficial!' 
+            : 'No se detectaron instancias en tu carpeta .minecraft.';
         profilesGrid.appendChild(emptyMsg);
     }
-    refreshAllCardStatuses(Object.keys(PROFILES));
-    Object.keys(PROFILES).forEach(id => applyCardProgressDOM(id));
+    
+    refreshAllCardStatuses(profilesToRender);
+    profilesToRender.forEach(id => applyCardProgressDOM(id));
 }
 
 function renderSection(title, items, isVanillaLocal) {

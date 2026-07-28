@@ -1,6 +1,6 @@
 import { saveProfileToDisk } from '../../core/state.js';
 import { invoke } from '../../core/tauri.js';
-import { updateStatus, drawProfiles } from '../../ui/ui.js';
+import { updateStatus } from '../../ui/ui.js';
 import { showAlert } from '../../ui/dialogs.js';
 import { getRecommendedJava } from './launcher.js';
 
@@ -286,7 +286,7 @@ async function createInstance() {
         await saveProfileToDisk(id, newProfile);
         updateStatus(`¡Instancia ${name} creada exitosamente!`);
         modal.classList.add('hidden');
-        await drawProfiles();
+        document.getElementById('btn-my-instances').click();
 
     } catch (e) {
         await showAlert("Error creando instancia: " + e.message);
