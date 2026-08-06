@@ -241,6 +241,9 @@ export function openInstanceDetail(profileId, isLocal = false, localProfile = nu
     const isOfficial = profile?.is_official === true;
     if (btnCheckDb) btnCheckDb.classList.toggle('hidden', !isOfficial);
 
+    const gpuShadersBlock = document.getElementById('gpu-shaders-block');
+    if (gpuShadersBlock) gpuShadersBlock.classList.toggle('hidden', isLocal);
+
     updatePlayKillButton(profileId);
 
     const defaultTab = document.querySelector('.tab-btn[data-tab="tab-logs"]');

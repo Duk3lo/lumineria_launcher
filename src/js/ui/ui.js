@@ -54,7 +54,7 @@ export async function drawProfiles(type = null) {
     if (!profilesGrid) return;
     closeAllDropdowns();
     profilesGrid.innerHTML = '';
-    
+
     const skeleton = document.createElement('div');
     skeleton.className = 'profiles-loading';
     skeleton.innerHTML = `
@@ -90,12 +90,12 @@ export async function drawProfiles(type = null) {
     if (profilesGrid.innerHTML === '') {
         const emptyMsg = document.createElement('p');
         emptyMsg.className = 'mods-empty-state';
-        emptyMsg.textContent = type === 'custom' 
-            ? 'No hay instancias. ¡Crea una nueva o instala una oficial!' 
+        emptyMsg.textContent = type === 'custom'
+            ? 'No hay instancias. ¡Crea una nueva o instala una oficial!'
             : 'No se detectaron instancias en tu carpeta .minecraft.';
         profilesGrid.appendChild(emptyMsg);
     }
-    
+
     refreshAllCardStatuses(profilesToRender);
     profilesToRender.forEach(id => applyCardProgressDOM(id));
 }
@@ -545,6 +545,48 @@ export async function initSettingsPanel() {
         });
         updateStatus("Ajustes guardados correctamente.");
     });
+
+    initGpuStatusPanel();
+}
+
+async function initGpuStatusPanel() {
+    const dot = document.getElementById('gpu-status-dot');
+    const label = document.getElementById('gpu-status-label');
+    const forceCheckbox = document.getElementById('force-shaders-checkbox');
+    if (!dot || !label || !forceCheckbox) return;
+
+    forceCheckbox.checked = !!SETTINGS.forceShaders;
+    await renderGpuInfo(dot, label);
+
+    forceCheckbox.addEventListener('change', async () => {
+        await saveSettings({ forceShaders: forceCheckbox.checked });
+        updateStatus(forceCheckbox.checked
+            ? "Shaders forzados. Se aplica desde la próxima sincronización de cada instancia."
+            : "Se vuelve a respetar la detección automática de GPU.");
+        renderGpuInfo(dot, label);
+    });
+}
+
+async function renderGpuInfo(dot, label) {
+    try {
+        const info = await invoke('get_gpu_info');
+        const forced = !!SETTINGS.forceShaders;
+
+        const tierMeta = {
+            discrete: { desc: 'los shaders se activan con normalidad.', ok: true },
+            integrated: { desc: 'los shaders se desactivan automáticamente en los modpacks que los traen.', ok: false },
+            none: { desc: 'no se pudo confirmar si es apta, los shaders quedan desactivados por seguridad.', ok: false }
+        }[info.tier] ?? { desc: 'estado desconocido.', ok: false };
+
+        dot.classList.toggle('installed', tierMeta.ok || forced);
+
+        let text = `${info.name} — ${tierMeta.desc}`;
+        if (forced && !tierMeta.ok) text += ' (forzado a activo por vos)';
+        label.textContent = text;
+    } catch (e) {
+        label.textContent = 'No se pudo consultar el estado de la GPU.';
+        console.warn('get_gpu_info falló:', e);
+    }
 }
 
 export function setCardPreparing(id, isPreparing) {

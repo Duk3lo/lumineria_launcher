@@ -115,6 +115,7 @@ async fn check_update_needed(
 pub async fn sync_packwiz_modpack(
     pack_url: String,
     instance_dir: String,
+    force_shaders_enabled: bool,
 ) -> Result<Vec<SyncedMod>, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
@@ -293,6 +294,12 @@ pub async fn sync_packwiz_modpack(
             }),
         }
     }
+
+    crate::games::minecraft::shaders::apply_shader_gpu_policy(
+        Path::new(&instance_dir),
+        force_shaders_enabled,
+    )
+    .await?;
 
     Ok(results)
 }

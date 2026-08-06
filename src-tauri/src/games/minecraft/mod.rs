@@ -5,3 +5,5 @@ pub mod fabric;
 pub mod launcher;
 pub mod vanilla;
 pub mod version;
+pub mod shaders;
+pub mod  loader;

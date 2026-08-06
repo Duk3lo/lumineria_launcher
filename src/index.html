@@ -129,12 +129,27 @@
 
                     <div id="tab-settings" class="tab-pane hidden">
                         <div class="action-panel settings-panel" style="max-width: 100%; box-shadow: none;">
+
+                            <div id="gpu-shaders-block">
+                                <div id="gpu-status-box" class="hint-text"
+                                    style="margin-bottom: 10px; display:flex; align-items:center; gap:8px;">
+                                    <span class="status-dot" id="gpu-status-dot"></span>
+                                    <span id="gpu-status-label">Detectando GPU...</span>
+                                </div>
+                                <label class="hint-text"
+                                    style="display:flex; align-items:center; gap:8px; margin-bottom:15px; cursor:pointer;">
+                                    <input type="checkbox" id="force-shaders-checkbox">
+                                    Forzar shaders activados aunque mi GPU no sea apta
+                                </label>
+                            </div>
+
                             <p class="hint-text" style="margin-bottom: 10px;">Ajustes aplicados al lanzar esta
                                 instancia.</p>
                             <div class="settings-grid">
                                 <label>RAM mínima (MB)<input id="ram-min-input" type="number" step="256"></label>
                                 <label>RAM máxima (MB)<input id="ram-max-input" type="number" step="256"></label>
                             </div>
+                            <!-- resto igual -->
                             <p id="ram-max-hint" class="hint-text"></p>
                             <label>Argumentos extra de Java<input id="java-args-input"
                                     placeholder="-XX:+UseG1GC ..."></label>

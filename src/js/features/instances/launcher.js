@@ -68,6 +68,11 @@ export async function sincronizarModpack(profileId, { silent = false } = {}) {
             workDir: instanceDir
         });
 
+        await invoke('apply_shader_gpu_policy_command', {
+            instanceDir,
+            forceEnabled: !!SETTINGS.forceShaders
+        });
+
         document.dispatchEvent(new CustomEvent('lumineria:mods-updated', { detail: { id: profileId } }));
 
         if (!silent) updateStatus(`Mods de ${profile.title} actualizados.`);
@@ -168,36 +173,35 @@ export async function prepararCliente(profileId, profile, { force = false, isLoc
             updateCardProgress(profileId, 40, `Verificado Fabric`);
         }
     } else if (profile.loader_url) {
-    if (!isInstalled || force) {
-        updateStatus(`Preparando ${profile.loader_name}...`);
-        updateCardProgress(profileId, 40, `Instalando ${profile.loader_name}...`);
-        const installerPath = `${installersDir}/${profile.loader_name.toLowerCase()}-${profile.mc_version}-installer.jar`;
-        await invoke('download_generic_file', { url: profile.loader_url, destPath: installerPath });
-        checkCancelled(profileId);
-        await invoke('execute_jar', {
-            javaPath, jarPath: installerPath,
-            args: ["--installClient", instanceDir], workDir: installersDir
-        });
+        if (!isInstalled || force) {
+            updateStatus(`Preparando ${profile.loader_name}...`);
+            updateCardProgress(profileId, 40, `Instalando ${profile.loader_name}...`);
+            const installerPath = `${installersDir}/${profile.loader_name.toLowerCase()}-${profile.mc_version}-installer.jar`;
+            await invoke('download_generic_file', { url: profile.loader_url, destPath: installerPath });
+            checkCancelled(profileId);
+            await invoke('execute_jar', {
+                javaPath, jarPath: installerPath,
+                args: ["--installClient", instanceDir], workDir: installersDir
+            });
 
-        checkCancelled(profileId);
-        const detectedId = await invoke('detect_installed_loader_version', {
-            instanceDir, mcVersion: profile.mc_version
-        });
-        if (detectedId && detectedId !== profile.version_id) {
-            profile.version_id = detectedId;
-            await saveProfileToDisk(profileId, profile);
+            checkCancelled(profileId);
+            const detectedId = await invoke('detect_installed_loader_version', {
+                instanceDir, mcVersion: profile.mc_version
+            });
+            if (detectedId && detectedId !== profile.version_id) {
+                profile.version_id = detectedId;
+                await saveProfileToDisk(profileId, profile);
+            }
+        } else {
+            updateStatus(`✔ ${profile.loader_name} ya estaba instalado.`);
+            updateCardProgress(profileId, 40, `Verificado ${profile.loader_name}`);
         }
-    } else {
-        updateStatus(`✔ ${profile.loader_name} ya estaba instalado.`);
-        updateCardProgress(profileId, 40, `Verificado ${profile.loader_name}`);
     }
-}
-checkCancelled(profileId);
+    checkCancelled(profileId);
 
-// usar el version_id correcto, ya sea el detectado o el original
-const finalVersionId = profile.version_id || profile.mc_version;
+    const finalVersionId = profile.version_id || profile.mc_version;
 
-return { javaPath, instanceDir, targetVersionId: finalVersionId, wasAlreadyInstalled: isInstalled };
+    return { javaPath, instanceDir, targetVersionId: finalVersionId, wasAlreadyInstalled: isInstalled };
 }
 
 export async function iniciarJuego(profileId, force = false, isLocal = false, localProfileData = null) {

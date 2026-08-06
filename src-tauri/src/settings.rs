@@ -8,6 +8,8 @@ pub struct LauncherSettings {
     pub ram_min_mb: u32,
     pub ram_max_mb: u32,
     pub java_args_extra: String,
+    #[serde(default)]
+    pub force_shaders: bool,
 }
 
 impl Default for LauncherSettings {
@@ -23,6 +25,7 @@ impl Default for LauncherSettings {
                 .unwrap_or(4096),
             java_args_extra: env::var("LUMINERIA_JAVA_ARGS_EXTRA")
                 .unwrap_or_default(),
+            force_shaders: false,
         }
     }
 }
@@ -37,7 +40,6 @@ pub async fn load_settings(base_dir: String) -> Result<LauncherSettings, String>
     if !path.exists() {
         return Ok(LauncherSettings::default());
     }
-    
     let raw = tokio::fs::read_to_string(&path).await.map_err(|e| e.to_string())?;
     serde_json::from_str(&raw).map_err(|e| e.to_string())
 }

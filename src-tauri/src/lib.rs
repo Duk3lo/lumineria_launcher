@@ -3,6 +3,7 @@ mod config;
 mod discord;
 mod downloader;
 mod games;
+mod gpu;
 mod hashutil;
 mod instance;
 mod ipc;
@@ -122,6 +123,8 @@ pub fn run() {
             games::minecraft::vanilla::ensure_vanilla_version,
             games::minecraft::fabric::ensure_fabric_profile,
             games::minecraft::launcher::cancel_preparation,
+            games::minecraft::loader::detect_installed_loader_version,
+            games::minecraft::shaders::apply_shader_gpu_policy_command,
             // --- Auth ---
             auth::microsoft::ms_login_start,
             auth::microsoft::ms_login_poll,
@@ -158,6 +161,9 @@ pub fn run() {
             instance::packwiz::sync_packwiz_modpack,
             // --- Red ---
             net::check_url_reachable,
+            // --- GPU ---
+            gpu::gpu_tier_label,
+            gpu::get_gpu_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
