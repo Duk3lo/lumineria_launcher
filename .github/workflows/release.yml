@@ -12,11 +12,12 @@ jobs:
       contents: write
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         include:
-          - platform: 'macos-latest'   # Apple Silicon (M1 en adelante)
+          - platform: 'macos-latest'
             args: '--target aarch64-apple-darwin'
-          - platform: 'macos-latest'   # Intel (i7 y demás x86_64)
+          - platform: 'macos-latest'
             args: '--target x86_64-apple-darwin'
           - platform: 'ubuntu-22.04'
             args: ''

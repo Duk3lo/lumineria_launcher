@@ -11,7 +11,7 @@ let currentDetailIsLocal = false;
 let currentDetailLocalProfile = null;
 
 export const INSTANCE_STATE = {};
-const autoSyncedThisSession = new Set();
+
 
 const viewGrid = document.getElementById('view-grid');
 const viewInstance = document.getElementById('view-instance');
@@ -80,7 +80,7 @@ export function initInstanceDetail() {
 
     btnUpdate?.addEventListener('click', async () => {
         if (!currentDetailProfileId || !puedeAccionar()) return;
-        await runSyncForCurrentInstance();
+        await runSyncForCurrentInstance({ checkDatabase: false });
     });
 
     document.getElementById('btn-open-folder-detail').addEventListener('click', () => {
@@ -178,7 +178,8 @@ export function initInstanceDetail() {
 
 
     btnCheckDb?.addEventListener('click', async () => {
-        if (!currentDetailProfileId || !getCurrentProfile()?.is_official || !puedeAccionar()) return;
+        const profile = getCurrentProfile();
+        if (!currentDetailProfileId || !profile?.is_official || !puedeAccionar()) return;
 
         setBusyState(true);
         statusText.innerText = "Consultando base de datos oficial...";
@@ -188,8 +189,7 @@ export function initInstanceDetail() {
             await marcarComprobado(currentDetailProfileId);
 
             if (changed) {
-                statusText.innerText = "Nueva versión detectada, descargando...";
-                await prepararCliente(currentDetailProfileId, getCurrentProfile());
+                await intentarPrepararCliente(currentDetailProfileId, getCurrentProfile(), { rethrow: true });
                 if (getCurrentProfile()?.packwiz_url) {
                     statusText.innerText = "Sincronizando mods...";
                     await sincronizarModpack(currentDetailProfileId, { silent: true });
@@ -268,10 +268,9 @@ export function setInstanceRunning(profileId, isRunning) {
     }
 }
 
-async function runSyncForCurrentInstance({ silent = false } = {}) {
+async function runSyncForCurrentInstance({ silent = false, checkDatabase = true } = {}) {
     const profileId = currentDetailProfileId;
     if (!profileId) return;
-
     const profile = getCurrentProfile();
     if (!profile) return;
 
@@ -281,18 +280,13 @@ async function runSyncForCurrentInstance({ silent = false } = {}) {
     try {
         let changed = false;
 
-        if (profile.is_official) {
+        if (checkDatabase && profile.is_official) {
             if (!silent) statusText.innerText = "Comprobando cliente en la base de datos...";
             try { changed = await syncSingleProfileFromDatabase(profileId); } catch (e) { }
         }
 
         if (changed) {
-            if (!silent) statusText.innerText = "Descargando nueva versión del cliente...";
-            try {
-                await prepararCliente(profileId, getCurrentProfile());
-            } catch (e) {
-                console.warn('No se pudo preparar el nuevo cliente:', e);
-            }
+            await intentarPrepararCliente(profileId, profile, { silent });
         }
 
         if (profile.packwiz_url) {
@@ -300,15 +294,13 @@ async function runSyncForCurrentInstance({ silent = false } = {}) {
             await sincronizarModpack(profileId, { silent: true });
         }
 
-        await marcarComprobado(profileId);
+        if (checkDatabase) await marcarComprobado(profileId);
 
         if (currentDetailProfileId === profileId) {
-            if (changed) {
-                statusText.innerText = "Instancia y mods actualizados a la última versión.";
-                drawProfiles();
-            } else {
-                statusText.innerText = "Todo está actualizado y listo.";
-            }
+            statusText.innerText = changed
+                ? "Instancia y mods actualizados a la última versión."
+                : "Todo está actualizado y listo.";
+            if (changed) drawProfiles();
         }
     } catch (e) {
         console.warn('Error al actualizar la instancia:', e);
@@ -334,6 +326,16 @@ function setBusyState(busy) {
     if (btnUpdate) {
         btnUpdate.disabled = busy;
         btnUpdate.innerText = busy ? '⏳ Actualizando...' : '🔄 Actualizar paquetes';
+    }
+}
+
+async function intentarPrepararCliente(profileId, profile, { silent = false, rethrow = false } = {}) {
+    if (!silent) statusText.innerText = "Descargando nueva versión del cliente...";
+    try {
+        await prepararCliente(profileId, profile);
+    } catch (e) {
+        console.warn('No se pudo preparar el nuevo cliente:', e);
+        if (rethrow) throw e;
     }
 }
 

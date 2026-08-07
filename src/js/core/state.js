@@ -16,7 +16,18 @@ export async function loginMicrosoftLegacy() {
     return AUTH_SESSION;
 }
 
+const AUTO_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
 const REFRESH_MARGIN_SECS = 12 * 3600;
+
+function debeSincronizarCatalogo() {
+    try {
+        const last = parseInt(localStorage.getItem('lumineria.lastCatalogSync') || '0', 10);
+        return (Date.now() - last) >= AUTO_SYNC_INTERVAL_MS;
+    } catch {
+        return true;
+    }
+}
 
 export function sessionNeedsRefresh(session = AUTH_SESSION) {
     if (!session || session.userType !== 'msa') return false;
@@ -58,7 +69,7 @@ export async function getBaseDirectory() {
 }
 export async function getInstanceDir(profileId) {
     const profile = PROFILES[profileId];
-    if (!profile || profile.loader_name.toLowerCase() === 'vanilla') {
+    if (!profile || profile.is_local === true) {
         return await invoke('get_minecraft_default_path');
     }
     const baseDir = await getBaseDirectory();
@@ -194,6 +205,8 @@ export async function deleteProfileFromDisk(profileId) {
 
 // state.js
 export async function syncInstalledProfilesFromDatabase() {
+    if (!debeSincronizarCatalogo()) return;
+
     let database;
     try {
         const baseDir = await getBaseDirectory();
@@ -201,6 +214,12 @@ export async function syncInstalledProfilesFromDatabase() {
     } catch (e) {
         console.warn('No se pudo comprobar actualizaciones del catálogo:', e);
         return;
+    }
+
+    try {
+        localStorage.setItem('lumineria.lastCatalogSync', String(Date.now()));
+    } catch (e) {
+        console.warn('No se pudo guardar la marca de sincronización del catálogo:', e);
     }
 
     resetLoaderVersionsCache();
@@ -217,6 +236,8 @@ export async function syncInstalledProfilesFromDatabase() {
 
         let remote = database[id];
         if (!remote) continue;
+
+        console.log(`[sync] ${id}:`, { version_id: remote.version_id, loader_url: remote.loader_url });
 
         try {
             remote = await resolveRemoteEntry(remote);
